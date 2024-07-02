@@ -1,0 +1,23 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
+    xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <f:section title="Appknox Security Scan Plugin Configuration">
+        <f:entry title="${%credentialsId}" field="credentialsId">
+            <f:select field="credentialsId" />
+        </f:entry>
+        <f:entry title="${%filePath}" field="filePath">
+            <f:textbox field = "filePath"/>
+        </f:entry>
+        <f:entry title="${%riskThreshold}" field="riskThreshold">
+            <select name="riskThreshold">
+                <option value="LOW" st:bind="true">LOW</option>
+                <option value="MEDIUM" st:bind="true">MEDIUM</option>
+                <option value="HIGH" st:bind="true">HIGH</option>
+                <option value="CRITICAL" st:bind="true">CRITICAL</option>
+            </select>
+        </f:entry>
+        <f:entry title="${%note}">
+			<p>${%requiredFields} </p>
+		</f:entry>
+    </f:section>
+</j:jelly>

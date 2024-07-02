@@ -1,0 +1,4 @@
+<?jelly escape-by-default='true'?>
+<div>
+    The Appknox Security Scan Plugin allows you to perform Appknox security scan on your mobile application binary.
+</div>
