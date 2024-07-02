@@ -17,7 +17,7 @@
     <packaging>hpi</packaging>
     
     <name>Appknox Security Scan Plugin</name>
-    <url>https://github.com/ashujha301/appknox-security-scan-plugin</url>
+    <url>https://github.com/appknox/appknox-security-scan-plugin</url>
     
     <licenses>
         <license>
@@ -27,15 +27,15 @@
     </licenses>
     
     <scm>
-        <connection>scm:git:https://github.com/ashujha301/appknox-security-scan-plugin.git</connection>
-        <developerConnection>scm:git:https://github.com/ashujha301/appknox-security-scan-plugin</developerConnection>
-        <url>https://github.com/ashujha301/appknox-jenkins-plugin</url>
+        <connection>scm:git:https://github.com/appknox/appknox-security-scan-plugin.git</connection>
+        <developerConnection>scm:git:https://github.com/appknox/appknox-security-scan-plugin</developerConnection>
+        <url>https://github.com/appknox/appknox-security-scan-plugin</url>
         <tag>HEAD</tag>
     </scm>
     
     <properties>
         <jenkins.version>2.440.3</jenkins.version>
-        <gitHubRepo>ashujha301/appknox-security-scan-plugin</gitHubRepo>
+        <gitHubRepo>appknox/appknox-security-scan-plugin</gitHubRepo>
     </properties>
     
     <dependencyManagement>
