@@ -60,6 +60,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     private final String filePath;
     private final String riskThreshold;
     private static final String binaryVersion = "1.3.1";
+    private static final String osName = System.getProperty("os.name").toLowerCase();
     private static final String CLI_DOWNLOAD_PATH = System.getProperty("user.home") + File.separator + "appknox";
 
     @DataBoundConstructor
@@ -84,35 +85,44 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     @Override
     public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener)
             throws InterruptedException, IOException {
-        boolean success = executeAppknoxCommands(run, workspace, launcher, listener);
+        // report name will create a report in artifact with name specified
+        String reportName = "summary-report.csv";
+        boolean success = executeAppknoxCommands(run, workspace, reportName, launcher, listener);
 
         if (success) {
-            archiveArtifact(run, workspace, launcher, listener);
+            archiveArtifact(run, workspace, reportName, launcher, listener);
         } else {
             run.setResult(Result.FAILURE);
         }
     }
 
-    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, Launcher launcher,
+    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher,
             TaskListener listener) {
         try {
-            String os = System.getProperty("os.name").toLowerCase();
-            String appknoxPath = downloadAndInstallAppknox(os, listener);
-            String uploadOutput = uploadFile(appknoxPath, listener);
+            String accessToken = getAccessToken(listener);
+            if (accessToken == null) {
+                return false;
+            }
+
+            Map<String, String> env = new HashMap<>(System.getenv());
+            env.put("APPKNOX_ACCESS_TOKEN", accessToken);
+            
+            String appknoxPath = downloadAndInstallAppknox(osName, listener);
+            String uploadOutput = uploadFile(appknoxPath, listener, env);
             String fileID = extractFileID(uploadOutput, listener);
             if (fileID == null) {
                 return false;
             }
 
-            runCICheck(appknoxPath, run, fileID, listener);
+            runCICheck(appknoxPath, run, fileID, listener, env);
 
-            String reportOutput = createReport(appknoxPath, fileID, listener);
+            String reportOutput = createReport(appknoxPath, fileID, listener, env);
             String reportID = extractReportID(reportOutput, listener);
             if (reportID == null) {
                 return false;
             }
 
-            downloadReportSummaryCSV(appknoxPath, reportID, run, workspace, listener);
+            downloadReportSummaryCSV(appknoxPath, reportName, reportID, run, workspace, listener, env);
         } catch (Exception e) {
             listener.getLogger().println("Error executing Appknox commands: " + e.getMessage());
             return false;
@@ -203,47 +213,45 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         String existingPath = System.getenv("PATH");
         String newPath = path + File.pathSeparator + existingPath;
         System.setProperty("PATH", newPath);
-        listener.getLogger().println("Updated PATH: " + newPath);
     }
 
-    private String uploadFile(String appknoxPath, TaskListener listener) throws IOException, InterruptedException {
+    private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
             return null;
         }
-
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("upload");
         command.add(filePath);
-        command.add("--access-token");
-        command.add(accessToken);
-
+    
         ProcessBuilder pb = new ProcessBuilder(command);
+        pb.environment().putAll(env);
         pb.redirectErrorStream(true);
         Process process = pb.start();
-
+    
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            StringBuilder output = new StringBuilder();
             String line;
+            String lastLine = null;
             while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
+                lastLine = line;
             }
-
-            listener.getLogger().println("Upload Output:");
-            listener.getLogger().println(output.toString());
-
-            if (process.exitValue() == 0) {
-                return output.toString().trim();
+    
+            if (lastLine != null) {
+                listener.getLogger().println("Upload Command Output :");
+                listener.getLogger().println("File ID = " + lastLine.trim());
+                return lastLine.trim();
             } else {
-                listener.getLogger().println("Upload failed.");
+                listener.getLogger().println("Upload failed: No output received.");
                 return null;
             }
+        } finally {
+            process.waitFor();
         }
     }
 
-    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener)
+    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, Map<String, String> env)
             throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
@@ -254,12 +262,11 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         command.add(appknoxPath);
         command.add("cicheck");
         command.add(fileID);
-        command.add("--access-token");
-        command.add(accessToken);
         command.add("--risk-threshold");
         command.add(riskThreshold);
 
         ProcessBuilder pb = new ProcessBuilder(command);
+        pb.environment().putAll(env);
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
@@ -271,8 +278,8 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
             while ((line = reader.readLine()) != null) {
                 if (!foundStarted) {
-                    // Skip lines until "Found" is encountered
-                    if (line.contains("Found")) {
+                    // Skip lines until "Found" or "No" is encountered
+                    if (line.contains("Found") || line.contains("No")) {
                         output.append(line).append("\n");
                         run.setDescription(output.toString() + "Check Console Output for more details.");
                         foundStarted = true;
@@ -284,17 +291,17 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             }
 
             if (!foundStarted) {
-                listener.getLogger().println("No 'Found' line encountered in the output.");
+                listener.getLogger().println("No line with 'Found' or 'No' encountered in the output.");
                 return false;
             }
-            listener.getLogger().println("CICheck Output:");
+            listener.getLogger().println("Ci Check Output:");
             listener.getLogger().println(output.toString());
 
             return process.exitValue() == 0;
         }
     }
 
-    private String createReport(String appknoxPath, String fileID, TaskListener listener)
+    private String createReport(String appknoxPath, String fileID, TaskListener listener, Map<String, String> env)
             throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
@@ -306,10 +313,9 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         command.add("reports");
         command.add("create");
         command.add(fileID);
-        command.add("--access-token");
-        command.add(accessToken);
 
         ProcessBuilder pb = new ProcessBuilder(command);
+        pb.environment().putAll(env);
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
@@ -321,9 +327,8 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
                 output.append(line).append("\n");
             }
         }
-
-        listener.getLogger().println("Report Output:");
-        listener.getLogger().println(output.toString());
+        listener.getLogger().println("Create Report Command Output :");
+        listener.getLogger().println("Report Id = " + output.toString());
 
         int exitValue = process.waitFor();
         if (exitValue == 0) {
@@ -334,8 +339,9 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
-    private void downloadReportSummaryCSV(String appknoxPath, String reportID, Run<?, ?> run, FilePath workspace,
-            TaskListener listener) throws IOException, InterruptedException {
+    private void downloadReportSummaryCSV(String appknoxPath, String reportName, String reportID, Run<?, ?> run,
+            FilePath workspace,
+            TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
             listener.error("Access token is null. Unable to download CSV report.");
@@ -348,27 +354,27 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         command.add("download");
         command.add("summary-csv");
         command.add(reportID);
-        command.add("--access-token");
-        command.add(accessToken);
         command.add("--output");
-        command.add(workspace.child("summary-report.csv").getRemote());
+        command.add(workspace.child(reportName).getRemote());
 
         ProcessBuilder pb = new ProcessBuilder(command);
+        pb.environment().putAll(env);
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
         int exitCode = process.waitFor();
         if (exitCode == 0) {
             listener.getLogger().println(
-                    "Summary report saved at:" + workspace.child("summary-report.csv").getRemote());
+                    "Summary report saved at:" + workspace.child(reportName).getRemote());
         } else {
             listener.getLogger().println("Download CSV failed. Exit code: " + exitCode);
         }
     }
 
-    private void archiveArtifact(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener) {
+    private void archiveArtifact(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher,
+            TaskListener listener) {
         try {
-            FilePath artifactFile = workspace.child("summary-report.csv");
+            FilePath artifactFile = workspace.child(reportName);
 
             if (!artifactFile.exists()) {
                 listener.error("Artifact file does not exist: " + artifactFile.getRemote());
@@ -377,7 +383,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
             ArtifactManager artifactManager = run.getArtifactManager();
             Map<String, String> artifacts = new HashMap<>();
-            artifacts.put("summary-report.csv", artifactFile.getName());
+            artifacts.put(reportName, artifactFile.getName());
             artifactManager.archive(workspace, launcher, (BuildListener) listener, artifacts);
 
             listener.getLogger().println("Artifact archived: " + artifactFile.getRemote());
@@ -417,7 +423,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
         @Override
         public String getDisplayName() {
-            return "Appknox Security Scan Plugin";
+            return "Appknox Security Scanner";
         }
 
         @SuppressWarnings("deprecation")
