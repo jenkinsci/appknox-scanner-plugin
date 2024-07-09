@@ -31,6 +31,7 @@ import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.verb.POST;
 
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
@@ -106,7 +107,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
             Map<String, String> env = new HashMap<>(System.getenv());
             env.put("APPKNOX_ACCESS_TOKEN", accessToken);
-            
             String appknoxPath = downloadAndInstallAppknox(osName, listener);
             String uploadOutput = uploadFile(appknoxPath, listener, env);
             String fileID = extractFileID(uploadOutput, listener);
@@ -215,7 +215,8 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         System.setProperty("PATH", newPath);
     }
 
-    private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
+    private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env)
+            throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
             return null;
@@ -224,7 +225,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         command.add(appknoxPath);
         command.add("upload");
         command.add(filePath);
-    
+
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.environment().putAll(env);
         pb.redirectErrorStream(true);
@@ -237,7 +238,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             while ((line = reader.readLine()) != null) {
                 lastLine = line;
             }
-    
+
             if (lastLine != null) {
                 listener.getLogger().println("Upload Command Output :");
                 listener.getLogger().println("File ID = " + lastLine.trim());
@@ -250,8 +251,8 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             process.waitFor();
         }
     }
-
-    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, Map<String, String> env)
+    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener,
+            Map<String, String> env)
             throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
@@ -427,6 +428,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
 
         @SuppressWarnings("deprecation")
+        @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath ItemGroup<?> context) {
             Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             return new StandardListBoxModel()
@@ -439,21 +441,27 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
                             CredentialsMatchers.instanceOf(StringCredentials.class));
         }
 
+        @POST
         public FormValidation doCheckCredentialsId(@QueryParameter String value) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             if (value.isEmpty()) {
                 return FormValidation.error("Appknox Access Token must be selected");
             }
             return FormValidation.ok();
         }
 
+        @POST
         public FormValidation doCheckFilePath(@QueryParameter String value) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             if (value.isEmpty()) {
                 return FormValidation.error("File Path must not be empty");
             }
             return FormValidation.ok();
         }
 
+        @POST
         public FormValidation doCheckRiskThreshold(@QueryParameter String value) {
+            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
             if (value.isEmpty() || (!value.equals("LOW") && !value.equals("MEDIUM") && !value.equals("HIGH")
                     && !value.equals("CRITICAL"))) {
                 return FormValidation.error("Risk Threshold must be one of: LOW, MEDIUM, HIGH, CRITICAL");
