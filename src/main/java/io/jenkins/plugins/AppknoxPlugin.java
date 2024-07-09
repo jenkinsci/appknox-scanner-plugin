@@ -107,7 +107,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
             Map<String, String> env = new HashMap<>(System.getenv());
             env.put("APPKNOX_ACCESS_TOKEN", accessToken);
-
             String appknoxPath = downloadAndInstallAppknox(osName, listener);
             String uploadOutput = uploadFile(appknoxPath, listener, env);
             String fileID = extractFileID(uploadOutput, listener);
@@ -231,7 +230,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         pb.environment().putAll(env);
         pb.redirectErrorStream(true);
         Process process = pb.start();
-
+    
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -252,7 +251,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             process.waitFor();
         }
     }
-
     private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener,
             Map<String, String> env)
             throws IOException, InterruptedException {
