@@ -14,6 +14,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.queue.Tasks;
 import hudson.security.ACL;
+import hudson.security.AccessControlled;
 import hudson.tasks.ArtifactArchiver;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
@@ -432,7 +433,12 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         @SuppressWarnings("deprecation")
         @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath ItemGroup<?> context) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            if(context == null){
+                Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            }else{
+                ((AccessControlled) context).checkPermission(Item.CONFIGURE);
+            }
+            
             return new StandardListBoxModel()
                     .includeEmptyValue()
                     .includeMatchingAs(
@@ -445,7 +451,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
         @POST
         public FormValidation doCheckCredentialsId(@QueryParameter String value) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            Jenkins.get().checkPermission(Item.CONFIGURE);
             if (value.isEmpty()) {
                 return FormValidation.error("Appknox Access Token must be selected");
             }
@@ -454,7 +460,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
         @POST
         public FormValidation doCheckFilePath(@QueryParameter String value) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            Jenkins.get().checkPermission(Item.CONFIGURE);
             if (value.isEmpty()) {
                 return FormValidation.error("File Path must not be empty");
             }
@@ -463,7 +469,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
         @POST
         public FormValidation doCheckRiskThreshold(@QueryParameter String value) {
-            Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            Jenkins.get().checkPermission(Item.CONFIGURE);
             if (value.isEmpty() || (!value.equals("LOW") && !value.equals("MEDIUM") && !value.equals("HIGH")
                     && !value.equals("CRITICAL"))) {
                 return FormValidation.error("Risk Threshold must be one of: LOW, MEDIUM, HIGH, CRITICAL");
