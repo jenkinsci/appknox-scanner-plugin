@@ -12,7 +12,7 @@
     </parent>
     
     <groupId>io.jenkins.plugins</groupId>
-    <artifactId>appknox-security-scanner</artifactId>
+    <artifactId>appknox-scanner</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>hpi</packaging>
     
