@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>4.84</version>
+        <version>4.85</version>
     </parent>
     
     <groupId>io.jenkins.plugins</groupId>
@@ -43,7 +43,7 @@
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
                 <artifactId>bom-2.440.x</artifactId>
-                <version>2907.vcb_35d6f2f7de</version>
+                <version>3180.vc1df4d5b_8097</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -68,13 +68,13 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>credentials</artifactId>
-            <version>2.6.1</version>
+            <version>1361.v56f5ca_35d21c</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>plain-credentials</artifactId>
-            <version>1.8</version>
+            <version>183.va_de8f1dd5a_2b_</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
