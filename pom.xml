@@ -17,7 +17,7 @@
     <packaging>hpi</packaging>
     
     <name>Appknox Security Scanner</name>
-    <url>https://github.com/appknox/appknox-jenkins-plugin</url>
+    <url>https://github.com/jenkinsci/appknox-jenkins-plugin</url>
     
     <licenses>
         <license>
@@ -29,13 +29,12 @@
     <scm>
         <connection>scm:git:https://github.com/appknox/appknox-jenkins-plugin.git</connection>
         <developerConnection>scm:git:https://github.com/appknox/appknox-jenkins-plugin</developerConnection>
-        <url>https://github.com/appknox/appknox-jenkins-plugin</url>
+        <url>https://github.com/jenkinsci/appknox-jenkins-plugin</url>
         <tag>HEAD</tag>
     </scm>
     
     <properties>
         <jenkins.version>2.440.3</jenkins.version>
-        <gitHubRepo>appknox/appknox-jenkins-plugin</gitHubRepo>
     </properties>
     
     <dependencyManagement>
@@ -68,14 +67,10 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>credentials</artifactId>
-            <version>1361.v56f5ca_35d21c</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>plain-credentials</artifactId>
-            <version>183.va_de8f1dd5a_2b_</version>
-            <scope>compile</scope>
         </dependency>
     </dependencies>
   
