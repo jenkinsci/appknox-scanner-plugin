@@ -19,8 +19,13 @@ public class AppknoxPluginTest {
 
         // Mock parameters for the plugin
         String credentialsId = "your-credentials-id";
-        String filePath = "app/mfva_1.0.apk"; // Relative path for testing
+        String filePath = "app\\mfva_1.0.apk"; // Relative path for testing
         String riskThreshold = "LOW"; // Example risk threshold
+
+        System.out.println("Testing with the following details:");
+        System.out.println("Workspace: " + env.get("WORKSPACE"));
+        System.out.println("File Path: " + filePath);
+        System.out.println("Risk Threshold: " + riskThreshold);
 
         // Create a TaskListener (could use a simple implementation or mock)
         TaskListener listener = new TaskListener() {
