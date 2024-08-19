@@ -40,7 +40,6 @@ import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
-import com.google.common.util.concurrent.Service.Listener;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -61,6 +60,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
+    private String customDir; // Custom directory input
     private static final String binaryVersion = "1.3.1";
     private static final String osName = System.getProperty("os.name").toLowerCase();
     private static final String CLI_DOWNLOAD_PATH = System.getProperty("user.home") + File.separator + "appknox";
@@ -82,6 +82,15 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
     public String getRiskThreshold() {
         return riskThreshold;
+    }
+
+    @DataBoundSetter
+    public void setCustomDir(String customDir) {
+        this.customDir = customDir;
+    }
+
+    public String getCustomDir() {
+        return customDir;
     }
 
     @Override
@@ -424,10 +433,13 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     }
 
     private String findApkFilePath(String workspace, String apkFileName) {
-        String[] possibleDirs = {
-                workspace + "/app/build/outputs/apk/debug/",
-                workspace + "/app/build/outputs/apk/release/"
-        };
+        List<String> possibleDirs = new ArrayList<>();
+        possibleDirs.add(workspace + "/app/build/outputs/apk/debug/");
+        possibleDirs.add(workspace + "/app/build/outputs/apk/release/");
+
+        if (customDir != null && !customDir.isEmpty()) {
+            possibleDirs.add(customDir);
+        }
 
         for (String dir : possibleDirs) {
             File apkFile = new File(dir, apkFileName);
@@ -436,6 +448,24 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             }
         }
 
+        // Fallback to recursive search if not found in standard locations
+        return findApkFilePathRecursive(new File(workspace), apkFileName);
+    }
+
+    private String findApkFilePathRecursive(File dir, String apkFileName) {
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    String result = findApkFilePathRecursive(file, apkFileName);
+                    if (result != null) {
+                        return result;
+                    }
+                } else if (file.getName().equals(apkFileName)) {
+                    return file.getAbsolutePath();
+                }
+            }
+        }
         return null;
     }
 
@@ -489,6 +519,14 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             Jenkins.get().checkPermission(Item.CONFIGURE);
             if (value.isEmpty()) {
                 return FormValidation.error("File Path must not be empty");
+            }
+            return FormValidation.ok();
+        }
+
+        @POST
+        public FormValidation doCheckCustomDir(@QueryParameter String value) {
+            if (value.isEmpty()) {
+                return FormValidation.warning("Custom directory is empty, default directories will be used.");
             }
             return FormValidation.ok();
         }
