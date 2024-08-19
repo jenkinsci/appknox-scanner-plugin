@@ -94,12 +94,14 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         if (success) {
             archiveArtifact(run, workspace, reportName, launcher, listener);
         } else {
-            run.setResult(Result.FAILURE);
+            if (run != null) {
+                run.setResult(Result.FAILURE);
+            }
         }
     }
 
     private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher,
-            TaskListener listener) {
+                                           TaskListener listener) {
         try {
             String accessToken = getAccessToken(listener);
             if (accessToken == null) {
@@ -109,7 +111,14 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             Map<String, String> env = new HashMap<>(System.getenv());
             env.put("APPKNOX_ACCESS_TOKEN", accessToken);
             String appknoxPath = downloadAndInstallAppknox(osName, listener);
-            String uploadOutput = uploadFile(appknoxPath, listener, env);
+
+            String apkFilePath = findApkFilePath(workspace.getRemote(), filePath);
+            if (apkFilePath == null) {
+                listener.getLogger().println("APK file not found in the expected directories.");
+                return false;
+            }
+
+            String uploadOutput = uploadFile(appknoxPath, listener, env, apkFilePath);
             String fileID = extractFileID(uploadOutput, listener);
             if (fileID == null) {
                 return false;
@@ -216,7 +225,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         System.setProperty("PATH", newPath);
     }
 
-    private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env)
+    private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env, String apkFilePath)
             throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
@@ -225,13 +234,13 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("upload");
-        command.add(filePath);
+        command.add(apkFilePath);
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.environment().putAll(env);
         pb.redirectErrorStream(true);
         Process process = pb.start();
-    
+
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -252,8 +261,9 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             process.waitFor();
         }
     }
+
     private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener,
-            Map<String, String> env)
+                               Map<String, String> env)
             throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
@@ -283,7 +293,9 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
                     // Skip lines until "Found" or "No" is encountered
                     if (line.contains("Found") || line.contains("No")) {
                         output.append(line).append("\n");
-                        run.setDescription(output.toString() + "Check Console Output for more details.");
+                        if (run != null) {
+                            run.setDescription(output.toString() + "Check Console Output for more details.");
+                        }
                         foundStarted = true;
                     }
                 } else {
@@ -342,8 +354,8 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     }
 
     private void downloadReportSummaryCSV(String appknoxPath, String reportName, String reportID, Run<?, ?> run,
-            FilePath workspace,
-            TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
+                                          FilePath workspace,
+                                          TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
             listener.error("Access token is null. Unable to download CSV report.");
@@ -374,7 +386,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     }
 
     private void archiveArtifact(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher,
-            TaskListener listener) {
+                                 TaskListener listener) {
         try {
             FilePath artifactFile = workspace.child(reportName);
 
@@ -411,6 +423,22 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
+    private String findApkFilePath(String workspace, String apkFileName) {
+        String[] possibleDirs = {
+                workspace + "/app/build/outputs/apk/debug/",
+                workspace + "/app/build/outputs/apk/release/"
+        };
+
+        for (String dir : possibleDirs) {
+            File apkFile = new File(dir, apkFileName);
+            if (apkFile.exists() && apkFile.isFile()) {
+                return apkFile.getAbsolutePath();
+            }
+        }
+
+        return null;
+    }
+
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         public DescriptorImpl() {
@@ -431,12 +459,12 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         @SuppressWarnings("deprecation")
         @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath ItemGroup<?> context) {
-            if(context == null){
+            if (context == null) {
                 Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-            }else{
+            } else {
                 ((AccessControlled) context).checkPermission(Item.CONFIGURE);
             }
-            
+
             return new StandardListBoxModel()
                     .includeEmptyValue()
                     .includeMatchingAs(
