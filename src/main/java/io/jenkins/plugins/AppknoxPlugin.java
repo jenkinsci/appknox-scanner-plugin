@@ -60,6 +60,8 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
+    private String customDir; // Custom directory input
+
     private static final String binaryVersion = "1.3.1";
     private static final String osName = System.getProperty("os.name").toLowerCase();
     private static final String CLI_DOWNLOAD_PATH = System.getProperty("user.home") + File.separator + "appknox";
@@ -81,6 +83,15 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
     public String getRiskThreshold() {
         return riskThreshold;
+    }
+
+    @DataBoundSetter
+    public void setCustomDir(String customDir) {
+        this.customDir = customDir;
+    }
+
+    public String getCustomDir() {
+        return customDir;
     }
 
     @Override
@@ -111,15 +122,12 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             String appknoxPath = downloadAndInstallAppknox(osName, listener);
 
             // Determine if the file is an APK or IPA based on extension
-            String apkFilePath = findAppFilePath(workspace.getRemote(), filePath, ".apk");
-            String ipaFilePath = findAppFilePath(workspace.getRemote(), filePath, ".ipa");
+            String appFilePath = findAppFilePath(workspace.getRemote(), filePath);
 
-            if (apkFilePath == null && ipaFilePath == null) {
+            if (appFilePath == null) {
                 listener.getLogger().println("Neither APK nor IPA file found in the expected directories.");
                 return false;
             }
-
-            String appFilePath = apkFilePath != null ? apkFilePath : ipaFilePath;
 
             String uploadOutput = uploadFile(appknoxPath, listener, env, appFilePath);
             String fileID = extractFileID(uploadOutput, listener);
@@ -293,7 +301,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
             while ((line = reader.readLine()) != null) {
                 if (!foundStarted) {
-                    // Skip lines until "Found" or "No" is encountered
                     if (line.contains("Found") || line.contains("No")) {
                         output.append(line).append("\n");
                         if (run != null) {
@@ -302,7 +309,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
                         foundStarted = true;
                     }
                 } else {
-                    // Start capturing output after "Found"
                     output.append(line).append("\n");
                 }
             }
@@ -426,11 +432,28 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
-    private String findAppFilePath(String workspace, String fileName, String extension) {
+    private String findAppFilePath(String workspace, String fileName) {
+        // Check if the provided path is a full path
+        File customFile = new File(workspace, fileName);
+        if (customFile.exists() && customFile.isFile()) {
+            return customFile.getAbsolutePath();
+        }
+
+        // Directories to search in order
         List<String> possibleDirs = new ArrayList<>();
         possibleDirs.add(workspace + "/app/build/outputs/apk/");
-        possibleDirs.add(workspace + "/app/build/outputs/ipa/");
+        possibleDirs.add(workspace + "/app/build/outputs/apk/release/");
+        possibleDirs.add(workspace + "/app/build/outputs/apk/debug/");
 
+        // If customDir is specified, search within it
+        if (customDir != null && !customDir.isEmpty()) {
+            File customDirFile = new File(workspace, customDir);
+            if (customDirFile.exists() && customDirFile.isDirectory()) {
+                possibleDirs.add(customDirFile.getAbsolutePath());
+            }
+        }
+
+        // Search in specified directories
         for (String dir : possibleDirs) {
             File appFile = new File(dir, fileName);
             if (appFile.exists() && appFile.isFile()) {
@@ -438,20 +461,27 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             }
         }
 
-        // Fallback to recursive search if not found in standard locations
-        return findAppFilePathRecursive(new File(workspace), fileName, extension);
+        // Fallback to recursive search starting from the build directory
+        String buildDir = workspace + "/app/build";
+        String result = findAppFilePathRecursive(new File(buildDir), fileName);
+        if (result != null) {
+            return result;
+        }
+
+        // File not found
+        return null;
     }
 
-    private String findAppFilePathRecursive(File dir, String fileName, String extension) {
+    private String findAppFilePathRecursive(File dir, String fileName) {
         File[] files = dir.listFiles();
         if (files != null) {
             for (File file : files) {
                 if (file.isDirectory()) {
-                    String result = findAppFilePathRecursive(file, fileName, extension);
+                    String result = findAppFilePathRecursive(file, fileName);
                     if (result != null) {
                         return result;
                     }
-                } else if (file.getName().equals(fileName) && file.getName().endsWith(extension)) {
+                } else if (file.getName().equals(fileName)) {
                     return file.getAbsolutePath();
                 }
             }
@@ -509,6 +539,14 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             Jenkins.get().checkPermission(Item.CONFIGURE);
             if (value.isEmpty()) {
                 return FormValidation.error("File Path must not be empty");
+            }
+            return FormValidation.ok();
+        }
+
+        @POST
+        public FormValidation doCheckCustomDir(@QueryParameter String value) {
+            if (value.isEmpty()) {
+                return FormValidation.warning("Custom directory is empty, default directories will be used.");
             }
             return FormValidation.ok();
         }
