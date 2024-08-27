@@ -49,6 +49,7 @@ import java.io.OutputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -149,6 +150,78 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             return false;
         }
         return true;
+    }
+
+    private String findAppFilePath(String workspace, String fileName) {
+        // Check if the provided path is a full path
+        File customFile = new File(workspace, fileName);
+        if (customFile.exists() && customFile.isFile()) {
+            return customFile.getAbsolutePath();
+        }
+
+        // Determine if the file is an APK or IPA based on extension
+        boolean isApk = fileName.endsWith(".apk");
+        boolean isIpa = fileName.endsWith(".ipa");
+
+        // Directories to search in order
+        List<String> possibleDirs = new ArrayList<>();
+
+        if (isApk) {
+            possibleDirs.addAll(Arrays.asList(
+                    workspace + "/app/build/outputs/apk/",
+                    workspace + "/app/build/outputs/apk/release/",
+                    workspace + "/app/build/outputs/apk/debug/"
+            ));
+        } else if (isIpa) {
+            possibleDirs.addAll(Arrays.asList(
+                    workspace + "/ios/build/outputs/apk/",
+                    workspace + "/ios/build/outputs/apk/release/",
+                    workspace + "/ios/build/outputs/apk/debug/"
+            ));
+        }
+
+        // If customDir is specified, search within it
+        if (customDir != null && !customDir.isEmpty()) {
+            File customDirFile = new File(workspace, customDir);
+            if (customDirFile.exists() && customDirFile.isDirectory()) {
+                possibleDirs.add(customDirFile.getAbsolutePath());
+            }
+        }
+
+        // Search in specified directories
+        for (String dir : possibleDirs) {
+            File appFile = new File(dir, fileName);
+            if (appFile.exists() && appFile.isFile()) {
+                return appFile.getAbsolutePath();
+            }
+        }
+
+        // Fallback to recursive search starting from the build directory
+        String buildDir = isApk ? workspace + "/app/build" : workspace + "/ios/build";
+        String result = findAppFilePathRecursive(new File(buildDir), fileName);
+        if (result != null) {
+            return result;
+        }
+
+        // File not found
+        return null;
+    }
+
+    private String findAppFilePathRecursive(File dir, String fileName) {
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    String result = findAppFilePathRecursive(file, fileName);
+                    if (result != null) {
+                        return result;
+                    }
+                } else if (file.getName().equals(fileName)) {
+                    return file.getAbsolutePath();
+                }
+            }
+        }
+        return null;
     }
 
     private String extractFileID(String uploadOutput, TaskListener listener) {
@@ -430,63 +503,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             listener.getLogger().println("Failed to retrieve access token from credentials.");
             return null;
         }
-    }
-
-    private String findAppFilePath(String workspace, String fileName) {
-        // Check if the provided path is a full path
-        File customFile = new File(workspace, fileName);
-        if (customFile.exists() && customFile.isFile()) {
-            return customFile.getAbsolutePath();
-        }
-
-        // Directories to search in order
-        List<String> possibleDirs = new ArrayList<>();
-        possibleDirs.add(workspace + "/app/build/outputs/apk/");
-        possibleDirs.add(workspace + "/app/build/outputs/apk/release/");
-        possibleDirs.add(workspace + "/app/build/outputs/apk/debug/");
-
-        // If customDir is specified, search within it
-        if (customDir != null && !customDir.isEmpty()) {
-            File customDirFile = new File(workspace, customDir);
-            if (customDirFile.exists() && customDirFile.isDirectory()) {
-                possibleDirs.add(customDirFile.getAbsolutePath());
-            }
-        }
-
-        // Search in specified directories
-        for (String dir : possibleDirs) {
-            File appFile = new File(dir, fileName);
-            if (appFile.exists() && appFile.isFile()) {
-                return appFile.getAbsolutePath();
-            }
-        }
-
-        // Fallback to recursive search starting from the build directory
-        String buildDir = workspace + "/app/build";
-        String result = findAppFilePathRecursive(new File(buildDir), fileName);
-        if (result != null) {
-            return result;
-        }
-
-        // File not found
-        return null;
-    }
-
-    private String findAppFilePathRecursive(File dir, String fileName) {
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    String result = findAppFilePathRecursive(file, fileName);
-                    if (result != null) {
-                        return result;
-                    }
-                } else if (file.getName().equals(fileName)) {
-                    return file.getAbsolutePath();
-                }
-            }
-        }
-        return null;
     }
 
     @Extension
