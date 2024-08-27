@@ -153,11 +153,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
     private String findAppFilePath(String workspace, String fileName) {
 
-        File customFile = new File(workspace, fileName);
-        if (customFile.exists() && customFile.isFile()) {
-            return customFile.getAbsolutePath();
-        }
-
         // Determine if the file is an APK or IPA based on the extension
         boolean isApk = fileName.endsWith(".apk");
         boolean isIpa = fileName.endsWith(".ipa");
@@ -194,8 +189,17 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             return result;
         }
 
+        // Handle the case where an absolute path is given as part of the fileName
+        File customFile = new File(workspace, fileName);
+        if (customFile.exists() && customFile.isFile()) {
+            return customFile.getAbsolutePath();
+        } else if (customFile.isAbsolute()) {
+            System.err.println("File not found at specified absolute path: " + customFile.getAbsolutePath());
+            return null;
+        }
+
         // File not found
-        System.err.println("File not found in specified directories or through recursive search.");
+        System.err.println("File not found in specified directories, through recursive search, or at the specified absolute path.");
         return null;
     }
 
