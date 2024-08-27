@@ -110,8 +110,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
-    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher,
-                                           TaskListener listener) {
+    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) {
         try {
             String accessToken = getAccessToken(listener);
             if (accessToken == null) {
@@ -346,8 +345,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
-    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener,
-                               Map<String, String> env)
+    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, Map<String, String> env)
             throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
@@ -435,9 +433,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
-    private void downloadReportSummaryCSV(String appknoxPath, String reportName, String reportID, Run<?, ?> run,
-                                          FilePath workspace,
-                                          TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
+    private void downloadReportSummaryCSV(String appknoxPath, String reportName, String reportID, Run<?, ?> run, FilePath workspace, TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
             listener.error("Access token is null. Unable to download CSV report.");
@@ -467,8 +463,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
-    private void archiveArtifact(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher,
-                                 TaskListener listener) {
+    private void archiveArtifact(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) {
         try {
             FilePath artifactFile = workspace.child(reportName);
 
@@ -525,9 +520,9 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         @SuppressWarnings("deprecation")
         @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath ItemGroup<?> context) {
-            if (context == null) {
+            if(context == null){
                 Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-            } else {
+            }else{
                 ((AccessControlled) context).checkPermission(Item.CONFIGURE);
             }
 
