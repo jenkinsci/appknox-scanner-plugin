@@ -152,13 +152,13 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     }
 
     private String findAppFilePath(String workspace, String fileName) {
-        // Check if the provided path is a full path
+
         File customFile = new File(workspace, fileName);
         if (customFile.exists() && customFile.isFile()) {
             return customFile.getAbsolutePath();
         }
 
-        // Determine if the file is an APK or IPA based on extension
+        // Determine if the file is an APK or IPA based on the extension
         boolean isApk = fileName.endsWith(".apk");
         boolean isIpa = fileName.endsWith(".ipa");
 
@@ -173,18 +173,10 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             ));
         } else if (isIpa) {
             possibleDirs.addAll(Arrays.asList(
-                    workspace + "/ios/build/outputs/apk/",
-                    workspace + "/ios/build/outputs/apk/release/",
-                    workspace + "/ios/build/outputs/apk/debug/"
+                    workspace + "/ios/build/outputs/ipa/",
+                    workspace + "/ios/build/outputs/ipa/release/",
+                    workspace + "/ios/build/outputs/ipa/debug/"
             ));
-        }
-
-        // If customDir is specified, search within it
-        if (customDir != null && !customDir.isEmpty()) {
-            File customDirFile = new File(workspace, customDir);
-            if (customDirFile.exists() && customDirFile.isDirectory()) {
-                possibleDirs.add(customDirFile.getAbsolutePath());
-            }
         }
 
         // Search in specified directories
@@ -195,7 +187,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             }
         }
 
-        // Fallback to recursive search starting from the build directory
+        // Fallback to recursive search starting from the build directory if not found in the above directories
         String buildDir = isApk ? workspace + "/app/build" : workspace + "/ios/build";
         String result = findAppFilePathRecursive(new File(buildDir), fileName);
         if (result != null) {
@@ -203,6 +195,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
 
         // File not found
+        System.err.println("File not found in specified directories or through recursive search.");
         return null;
     }
 
