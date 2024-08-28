@@ -61,7 +61,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
-    private String customDir; // Custom directory input
 
     private static final String binaryVersion = "1.3.1";
     private static final String osName = System.getProperty("os.name").toLowerCase();
@@ -84,15 +83,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
     public String getRiskThreshold() {
         return riskThreshold;
-    }
-
-    @DataBoundSetter
-    public void setCustomDir(String customDir) {
-        this.customDir = customDir;
-    }
-
-    public String getCustomDir() {
-        return customDir;
     }
 
     @Override
@@ -547,14 +537,6 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             Jenkins.get().checkPermission(Item.CONFIGURE);
             if (value.isEmpty()) {
                 return FormValidation.error("File Path must not be empty");
-            }
-            return FormValidation.ok();
-        }
-
-        @POST
-        public FormValidation doCheckCustomDir(@QueryParameter String value) {
-            if (value.isEmpty()) {
-                return FormValidation.warning("Custom directory is empty, default directories will be used.");
             }
             return FormValidation.ok();
         }
