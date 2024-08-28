@@ -40,7 +40,6 @@ import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
-import com.google.common.util.concurrent.Service.Listener;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -50,6 +49,7 @@ import java.io.OutputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +61,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
+
     private static final String binaryVersion = "1.3.1";
     private static final String osName = System.getProperty("os.name").toLowerCase();
     private static final String CLI_DOWNLOAD_PATH = System.getProperty("user.home") + File.separator + "appknox";
@@ -87,19 +88,19 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     @Override
     public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener)
             throws InterruptedException, IOException {
-        // report name will create a report in artifact with name specified
         String reportName = "summary-report.csv";
         boolean success = executeAppknoxCommands(run, workspace, reportName, launcher, listener);
 
         if (success) {
             archiveArtifact(run, workspace, reportName, launcher, listener);
         } else {
-            run.setResult(Result.FAILURE);
+            if (run != null) {
+                run.setResult(Result.FAILURE);
+            }
         }
     }
 
-    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher,
-            TaskListener listener) {
+    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) {
         try {
             String accessToken = getAccessToken(listener);
             if (accessToken == null) {
@@ -109,7 +110,16 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             Map<String, String> env = new HashMap<>(System.getenv());
             env.put("APPKNOX_ACCESS_TOKEN", accessToken);
             String appknoxPath = downloadAndInstallAppknox(osName, listener);
-            String uploadOutput = uploadFile(appknoxPath, listener, env);
+
+            // Determine if the file is an APK or IPA based on extension
+            String appFilePath = findAppFilePath(workspace.getRemote(), filePath, listener);
+
+            if (appFilePath == null) {
+                listener.getLogger().println("Neither APK nor IPA file found in the expected directories.");
+                return false;
+            }
+
+            String uploadOutput = uploadFile(appknoxPath, listener, env, appFilePath);
             String fileID = extractFileID(uploadOutput, listener);
             if (fileID == null) {
                 return false;
@@ -129,6 +139,79 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             return false;
         }
         return true;
+    }
+
+    private String findAppFilePath(String workspace, String fileName, TaskListener listener) {
+
+        // Determine if the file is an APK or IPA based on the extension
+        boolean isApk = fileName.endsWith(".apk");
+        boolean isIpa = fileName.endsWith(".ipa");
+
+        // Directories to search in order
+        List<String> possibleDirs = new ArrayList<>();
+
+        if (isApk) {
+            possibleDirs.addAll(Arrays.asList(
+                    workspace + "/app/build/outputs/apk/",
+                    workspace + "/app/build/outputs/apk/release/",
+                    workspace + "/app/build/outputs/apk/debug/"
+            ));
+        } else if (isIpa) {
+            possibleDirs.addAll(Arrays.asList(
+                    workspace + "/Build/Products/",
+                    workspace + "/Build/Products/Debug-iphoneos/",
+                    workspace + "/Build/Products/Release-iphoneos/"
+            ));
+        }
+
+        // Search in specified directories
+        for (String dir : possibleDirs) {
+            File appFile = new File(dir, fileName);
+            if (appFile.exists() && appFile.isFile()) {
+                listener.getLogger().println("File found at: " + appFile.getAbsolutePath());
+                return appFile.getAbsolutePath();
+            }
+        }
+
+        // Fallback to recursive search starting from the build directory if not found in the above directories
+        String buildDir = isApk ? workspace + "/app/build" : workspace + "/Build";
+        String result = findAppFilePathRecursive(new File(buildDir), fileName, listener);
+        if (result != null) {
+            listener.getLogger().println("File found during recursive search at: " + result);
+            return result;
+        }
+
+        // Handle the case where an absolute path is given as part of the fileName
+        File customFile = new File(workspace, fileName);
+        if (customFile.exists() && customFile.isFile()) {
+            listener.getLogger().println("File found at specified absolute path: " + customFile.getAbsolutePath());
+            return customFile.getAbsolutePath();
+        } else if (customFile.isAbsolute()) {
+            listener.getLogger().println("File not found at specified absolute path: " + customFile.getAbsolutePath());
+            return null;
+        }
+
+        // File not found
+        listener.getLogger().println("File not found in specified directories, through recursive search, or at the specified absolute path.");
+        return null;
+    }
+
+    private String findAppFilePathRecursive(File dir, String fileName, TaskListener listener) {
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    String result = findAppFilePathRecursive(file, fileName, listener);
+                    if (result != null) {
+                        return result;
+                    }
+                } else if (file.getName().equals(fileName)) {
+                    listener.getLogger().println("File found during recursive search at: " + file.getAbsolutePath());
+                    return file.getAbsolutePath();
+                }
+            }
+        }
+        return null;
     }
 
     private String extractFileID(String uploadOutput, TaskListener listener) {
@@ -216,7 +299,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         System.setProperty("PATH", newPath);
     }
 
-    private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env)
+    private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env, String appFilePath)
             throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
@@ -225,13 +308,13 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("upload");
-        command.add(filePath);
+        command.add(appFilePath);
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.environment().putAll(env);
         pb.redirectErrorStream(true);
         Process process = pb.start();
-    
+
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -252,8 +335,8 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             process.waitFor();
         }
     }
-    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener,
-            Map<String, String> env)
+
+    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, Map<String, String> env)
             throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
@@ -280,14 +363,14 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
 
             while ((line = reader.readLine()) != null) {
                 if (!foundStarted) {
-                    // Skip lines until "Found" or "No" is encountered
                     if (line.contains("Found") || line.contains("No")) {
                         output.append(line).append("\n");
-                        run.setDescription(output.toString() + "Check Console Output for more details.");
+                        if (run != null) {
+                            run.setDescription(output.toString() + "Check Console Output for more details.");
+                        }
                         foundStarted = true;
                     }
                 } else {
-                    // Start capturing output after "Found"
                     output.append(line).append("\n");
                 }
             }
@@ -341,9 +424,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
-    private void downloadReportSummaryCSV(String appknoxPath, String reportName, String reportID, Run<?, ?> run,
-            FilePath workspace,
-            TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
+    private void downloadReportSummaryCSV(String appknoxPath, String reportName, String reportID, Run<?, ?> run, FilePath workspace, TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
         String accessToken = getAccessToken(listener);
         if (accessToken == null) {
             listener.error("Access token is null. Unable to download CSV report.");
@@ -373,8 +454,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         }
     }
 
-    private void archiveArtifact(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher,
-            TaskListener listener) {
+    private void archiveArtifact(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) {
         try {
             FilePath artifactFile = workspace.child(reportName);
 
@@ -436,7 +516,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             }else{
                 ((AccessControlled) context).checkPermission(Item.CONFIGURE);
             }
-            
+
             return new StandardListBoxModel()
                     .includeEmptyValue()
                     .includeMatchingAs(
