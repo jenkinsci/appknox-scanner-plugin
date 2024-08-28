@@ -98,7 +98,7 @@ stages {
 | Key                     | Value                        |
 |-------------------------|------------------------------|
 | `credentialsId`         | Personal appknox access token ID |
-| `file_path`             | File path to the mobile application binary to be uploaded |
+| `file_path`             | Build file name or file path to the mobile application binary to be uploaded. eg:app-debug.apk, app/build/apk/app-debug,apk |
 | `risk_threshold`        | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
 
 ---
