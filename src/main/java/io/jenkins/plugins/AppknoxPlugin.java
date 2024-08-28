@@ -112,7 +112,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             String appknoxPath = downloadAndInstallAppknox(osName, listener);
 
             // Determine if the file is an APK or IPA based on extension
-            String appFilePath = findAppFilePath(workspace.getRemote(), filePath);
+            String appFilePath = findAppFilePath(workspace.getRemote(), filePath, listener);
 
             if (appFilePath == null) {
                 listener.getLogger().println("Neither APK nor IPA file found in the expected directories.");
@@ -141,7 +141,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         return true;
     }
 
-    private String findAppFilePath(String workspace, String fileName) {
+    private String findAppFilePath(String workspace, String fileName, TaskListener listener) {
 
         // Determine if the file is an APK or IPA based on the extension
         boolean isApk = fileName.endsWith(".apk");
@@ -158,9 +158,9 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
             ));
         } else if (isIpa) {
             possibleDirs.addAll(Arrays.asList(
-                    workspace + "/ios/build/outputs/ipa/",
-                    workspace + "/ios/build/outputs/ipa/release/",
-                    workspace + "/ios/build/outputs/ipa/debug/"
+                    workspace + "/Build/Products/",
+                    workspace + "/Build/Products/Debug-iphoneos/",
+                    workspace + "/Build/Products/Release-iphoneos/"
             ));
         }
 
@@ -168,41 +168,45 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
         for (String dir : possibleDirs) {
             File appFile = new File(dir, fileName);
             if (appFile.exists() && appFile.isFile()) {
+                listener.getLogger().println("File found at: " + appFile.getAbsolutePath());
                 return appFile.getAbsolutePath();
             }
         }
 
         // Fallback to recursive search starting from the build directory if not found in the above directories
-        String buildDir = isApk ? workspace + "/app/build" : workspace + "/ios/build";
-        String result = findAppFilePathRecursive(new File(buildDir), fileName);
+        String buildDir = isApk ? workspace + "/app/build" : workspace + "/Build";
+        String result = findAppFilePathRecursive(new File(buildDir), fileName, listener);
         if (result != null) {
+            listener.getLogger().println("File found during recursive search at: " + result);
             return result;
         }
 
         // Handle the case where an absolute path is given as part of the fileName
         File customFile = new File(workspace, fileName);
         if (customFile.exists() && customFile.isFile()) {
+            listener.getLogger().println("File found at specified absolute path: " + customFile.getAbsolutePath());
             return customFile.getAbsolutePath();
         } else if (customFile.isAbsolute()) {
-            System.err.println("File not found at specified absolute path: " + customFile.getAbsolutePath());
+            listener.getLogger().println("File not found at specified absolute path: " + customFile.getAbsolutePath());
             return null;
         }
 
         // File not found
-        System.err.println("File not found in specified directories, through recursive search, or at the specified absolute path.");
+        listener.getLogger().println("File not found in specified directories, through recursive search, or at the specified absolute path.");
         return null;
     }
 
-    private String findAppFilePathRecursive(File dir, String fileName) {
+    private String findAppFilePathRecursive(File dir, String fileName, TaskListener listener) {
         File[] files = dir.listFiles();
         if (files != null) {
             for (File file : files) {
                 if (file.isDirectory()) {
-                    String result = findAppFilePathRecursive(file, fileName);
+                    String result = findAppFilePathRecursive(file, fileName, listener);
                     if (result != null) {
                         return result;
                     }
                 } else if (file.getName().equals(fileName)) {
+                    listener.getLogger().println("File found during recursive search at: " + file.getAbsolutePath());
                     return file.getAbsolutePath();
                 }
             }
