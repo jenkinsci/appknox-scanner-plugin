@@ -121,7 +121,7 @@ pipeline {
                 // Build the app using specific build, Example is given using gradle
                 script {
                     sh './gradlew build'
-                    FILE_PATH = "${WORKSPACE}/app/build/outputs/apk/debug/app.aab"
+                    FILE_PATH = "app/build/outputs/apk/debug/app.aab"
                 }
             }
         }
