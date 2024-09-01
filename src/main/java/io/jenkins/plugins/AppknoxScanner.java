@@ -45,19 +45,17 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 
-public class AppknoxPlugin extends Builder implements SimpleBuildStep {
+public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
@@ -67,7 +65,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     private static final String CLI_DOWNLOAD_PATH = System.getProperty("user.home") + File.separator + "appknox";
 
     @DataBoundConstructor
-    public AppknoxPlugin(String credentialsId, String filePath, String riskThreshold) {
+    public AppknoxScanner(String credentialsId, String filePath, String riskThreshold) {
         this.credentialsId = credentialsId;
         this.filePath = filePath;
         this.riskThreshold = riskThreshold;
@@ -494,7 +492,7 @@ public class AppknoxPlugin extends Builder implements SimpleBuildStep {
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         public DescriptorImpl() {
-            super(AppknoxPlugin.class);
+            super(AppknoxScanner.class);
             load();
         }
 
