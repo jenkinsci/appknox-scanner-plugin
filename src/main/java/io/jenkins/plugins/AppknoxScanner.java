@@ -61,16 +61,18 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
+    private final String apiHost;
 
     private static final String binaryVersion = "1.3.1";
     private static final String osName = System.getProperty("os.name").toLowerCase();
     private static final String CLI_DOWNLOAD_PATH = System.getProperty("user.home") + File.separator + "appknox";
 
     @DataBoundConstructor
-    public AppknoxScanner(String credentialsId, String filePath, String riskThreshold) {
+    public AppknoxScanner(String credentialsId, String filePath, String riskThreshold, String apiHost) {
         this.credentialsId = credentialsId;
         this.filePath = filePath;
         this.riskThreshold = riskThreshold;
+        this.apiHost = apiHost;
     }
 
     public String getCredentialsId() {
@@ -83,6 +85,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
     public String getRiskThreshold() {
         return riskThreshold;
+    }
+
+    public String getApiHost() {
+        return apiHost;
     }
 
     @Override
@@ -110,6 +116,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             Map<String, String> env = new HashMap<>(System.getenv());
             env.put("APPKNOX_ACCESS_TOKEN", accessToken);
             String appknoxPath = downloadAndInstallAppknox(osName, listener);
+
+            String selectedApiHost = resolveApiHost(listener);
+            // listener.getLogger().println("Using API Host: " + selectedApiHost);
+            env.put("APPKNOX_API_HOST", selectedApiHost);
 
             // Determine if the file is an APK or IPA based on extension
             String appFilePath = findAppFilePath(workspace.getRemote(), filePath, listener);
@@ -213,6 +223,24 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
         return null;
     }
+
+    private String resolveApiHost(TaskListener listener) {
+        String resolvedHost;
+            switch (apiHost) {
+                case "global":
+                    resolvedHost = "https://api.appknox.com/";
+                    break;
+                case "saudi":
+                    resolvedHost = "https://sa.secure.appknox.com/";
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid API host selection.");
+            }
+        // Log the selected API host and URL
+        listener.getLogger().println("Using API Host: " + apiHost + " with URL: " + resolvedHost);
+        return resolvedHost;
+    }
+
 
     private String extractFileID(String uploadOutput, TaskListener listener) {
         String[] lines = uploadOutput.split("\n");
@@ -506,6 +534,14 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         @Override
         public String getDisplayName() {
             return "Appknox Security Scanner";
+        }
+
+        @POST
+        public ListBoxModel doFillApiHostItems() {
+            return new ListBoxModel(
+                    new ListBoxModel.Option("Global", "global"),
+                    new ListBoxModel.Option("Saudi", "saudi")
+            );
         }
 
         @SuppressWarnings("deprecation")
