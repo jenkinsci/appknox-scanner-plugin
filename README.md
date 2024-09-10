@@ -84,7 +84,7 @@ stages {
                             credentialsId: 'your-appknox-access-token-ID', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
                             filePath: FILE_PATH,
                             riskThreshold: params.RISK_THRESHOLD.toUpperCase(),
-                            apiHost: params.API_HOST // Pass the apiHost parameter as expected
+                            region: params.Region // Pass the region parameter as expected
                         ])
                     
                 }
@@ -96,12 +96,12 @@ stages {
 
 ## Inputs
 
-| Key                     | Value                        |
-|-------------------------|------------------------------|
-| `credentialsId`         | Personal appknox access token ID |
-| `file_path`             | Specify the build file name or path for the mobile application binary to upload, E.g. app-debug.apk, app/build/apk/app-debug.apk |
-| `risk_threshold`        | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
-| 'api_host'              | Specify the Appknox region. <br><br>Accepted values: 'Global, Saudi' <br><br>Default: 'Global' |
+| Key               | Value                        |
+|-------------------|------------------------------|
+| `credentialsId`   | Personal appknox access token ID |
+| `file_path`       | Specify the build file name or path for the mobile application binary to upload, E.g. app-debug.apk, app/build/apk/app-debug.apk |
+| `risk_threshold`  | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
+| `region`          | Specify the Appknox region. <br><br>Accepted values: 'Global, Saudi' <br><br>Default: 'Global' |
 
 ---
 
@@ -111,7 +111,7 @@ pipeline {
     agent any
     parameters {
         choice(name: 'RISK_THRESHOLD', choices: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], description: 'Risk Threshold')
-        choice(name: 'API_HOST', choices: ['global', 'saudi'], description: 'Appknox Regions')
+        choice(name: 'Region', choices: ['global', 'saudi'], description: 'Appknox Regions')
     }
     stages {
         stage('Checkout') {
@@ -137,7 +137,7 @@ pipeline {
                             credentialsId: 'your-appknox-access-token-id', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
                             filePath: FILE_PATH,
                             riskThreshold: params.RISK_THRESHOLD.toUpperCase(),
-                            apiHost: params.API_HOST // Pass the apiHost parameter as expected
+                            region: params.Region // Pass the region parameter as expected
                         ])
                 }
             }
