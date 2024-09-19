@@ -57,6 +57,7 @@ import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 
+@Symbol("appKnoxScanner")
 public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;

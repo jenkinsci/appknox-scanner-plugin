@@ -79,13 +79,12 @@ stages {
             steps {
                 script {
                         // Perform Appknox scan using AppknoxScanner
-                        step([
-                            $class: 'AppknoxScanner',
+                        appKnoxScanner(
                             credentialsId: 'your-appknox-access-token-ID', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
                             filePath: FILE_PATH,
                             riskThreshold: params.RISK_THRESHOLD.toUpperCase(),
                             region: params.Region // Pass the region parameter as expected
-                        ])
+                        )
                     
                 }
             }
