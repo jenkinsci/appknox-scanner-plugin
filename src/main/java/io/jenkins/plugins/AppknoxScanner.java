@@ -322,9 +322,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     }
 
     private void addPathToEnvironment(String path, TaskListener listener) {
-        String existingPath = System.getenv("PATH");
-        String newPath = path + File.pathSeparator + existingPath;
-        System.setProperty("PATH", newPath);
+        // String existingPath = System.getenv("PATH");
+        // String newPath = path + File.pathSeparator + existingPath;
+        // System.setProperty("PATH", newPath);
+        listener.getLogger().println("Appknox CLI located at: " + path);
     }
 
     private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env, String appFilePath)
