@@ -288,7 +288,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             listener.getLogger().println("Appknox CLI already exists at: " + CLI_DOWNLOAD_PATH);
         }
 
-        addPathToEnvironment(CLI_DOWNLOAD_PATH, listener);
+        listener.getLogger().println("Appknox CLI located at: " + CLI_DOWNLOAD_PATH);
         return CLI_DOWNLOAD_PATH;
     }
 
@@ -322,12 +322,6 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 
-    private void addPathToEnvironment(String path, TaskListener listener) {
-        // String existingPath = System.getenv("PATH");
-        // String newPath = path + File.pathSeparator + existingPath;
-        // System.setProperty("PATH", newPath);
-        listener.getLogger().println("Appknox CLI located at: " + path);
-    }
 
     private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env, String appFilePath)
             throws IOException, InterruptedException {
