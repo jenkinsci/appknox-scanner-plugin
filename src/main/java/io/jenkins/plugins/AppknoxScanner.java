@@ -1,4 +1,4 @@
-package io.jenkins.plugins.scanner;
+package io.jenkins.plugins;
 
 import hudson.Extension;
 import hudson.FilePath;
