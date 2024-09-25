@@ -64,7 +64,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String riskThreshold;
     private final String apiHost;
 
-    private static final String binaryVersion = "1.3.1";
+    private static final String binaryVersion = "1.6.0";
     private static final String osName = System.getProperty("os.name").toLowerCase();
     private static final String CLI_DOWNLOAD_PATH = System.getProperty("user.home") + File.separator + "appknox";
 
@@ -118,9 +118,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             env.put("APPKNOX_ACCESS_TOKEN", accessToken);
             String appknoxPath = downloadAndInstallAppknox(osName, listener);
 
-            String selectedApiHost = resolveApiHost(listener);
-            // listener.getLogger().println("Using API Host: " + selectedApiHost);
-            env.put("APPKNOX_API_HOST", selectedApiHost);
+            listener.getLogger().println("Selected Region: " + apiHost);
 
             // Determine if the file is an APK or IPA based on extension
             String appFilePath = findAppFilePath(workspace.getRemote(), filePath, listener);
@@ -225,23 +223,6 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         return null;
     }
 
-    private String resolveApiHost(TaskListener listener) {
-        String resolvedHost;
-            switch (apiHost) {
-                case "global":
-                    resolvedHost = "https://api.appknox.com/";
-                    break;
-                case "saudi":
-                    resolvedHost = "https://sa.secure.appknox.com/";
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid Region selection.");
-            }
-        // Log the selected API host and URL
-        listener.getLogger().println("Using Region: " + apiHost + " with URL: " + resolvedHost);
-        return resolvedHost;
-    }
-
 
     private String extractFileID(String uploadOutput, TaskListener listener) {
         String[] lines = uploadOutput.split("\n");
@@ -332,6 +313,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add(appknoxPath);
         command.add("upload");
         command.add(appFilePath);
+        command.add("--region");
+        command.add(apiHost);
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.environment().putAll(env);
@@ -372,6 +355,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add(fileID);
         command.add("--risk-threshold");
         command.add(riskThreshold);
+        command.add("--region");
+        command.add(apiHost);
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.environment().putAll(env);
@@ -421,6 +406,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("reports");
         command.add("create");
         command.add(fileID);
+        command.add("--region");
+        command.add(apiHost);
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.environment().putAll(env);
@@ -462,6 +449,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add(reportID);
         command.add("--output");
         command.add(workspace.child(reportName).getRemote());
+        command.add("--region");
+        command.add(apiHost);
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.environment().putAll(env);
