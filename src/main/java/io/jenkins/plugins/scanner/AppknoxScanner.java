@@ -108,9 +108,6 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             listener.getLogger().println("Workspace is null.");
             return;
         }
-
-        String reportName = "summary-report.csv";
-
         // Determine if running on controller or agent
         if (workspace.isRemote()) {
             // Running on agent
@@ -119,6 +116,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             // Running on Controller
             listener.getLogger().println("Running on Controller...");
         }
+
+        String reportName = "summary-report.csv";
 
         boolean success = executeAppknoxCommands(run, workspace, reportName, launcher, listener);
 
@@ -333,7 +332,6 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add(appFilePath);
         command.add("--region");
         command.add(apiHost);
-        // Removed '--no-progress' flag
 
         ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
@@ -468,7 +466,6 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add(workspace.child(reportName).getRemote());
         command.add("--region");
         command.add(apiHost);
-        // Removed '--no-progress' flag
 
         ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
@@ -571,9 +568,9 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         @SuppressWarnings("deprecation")
         @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath ItemGroup<?> context) {
-            if (context == null) {
+            if(context == null){
                 Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-            } else {
+            }else{
                 ((AccessControlled) context).checkPermission(Item.CONFIGURE);
             }
 
