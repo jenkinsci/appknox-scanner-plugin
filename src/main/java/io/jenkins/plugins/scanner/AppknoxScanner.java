@@ -398,6 +398,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
                     if (run != null) {
                         run.setDescription(outputBuilder.toString() + " Check Console Output for more details.");
                     }
+                    listener.getLogger().println(); // Adds a blank line
                     foundStarted = true;
                 }
             } else {
@@ -442,6 +443,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         if (reportID != null) {
             listener.getLogger().println("Create Report Command Output:");
             listener.getLogger().println("Report Id = " + reportID);
+            listener.getLogger().println(); // Adds a blank line
         } else {
             listener.getLogger().println("Failed to create report. Output: " + output);
         }
