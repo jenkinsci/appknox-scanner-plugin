@@ -339,7 +339,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).start();
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).quiet(true).start();
         int exitCode = proc.join();
 
         if (exitCode != 0) {
@@ -377,7 +377,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
         // Launch the cicheck process using Jenkins' Launcher and Proc
-        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).start();
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).quiet(true).start();
         int exitCode = proc.join();
 
         // Convert the output to a string
@@ -434,7 +434,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).start();
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).quiet(true).start();
         int exitCode = proc.join();
 
         String output = outputStream.toString("UTF-8").trim();
@@ -472,7 +472,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).start();
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).quiet(true).start();
         int exitCode = proc.join();
 
         if (exitCode != 0) {
