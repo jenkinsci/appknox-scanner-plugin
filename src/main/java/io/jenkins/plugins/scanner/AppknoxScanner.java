@@ -3,6 +3,9 @@ package io.jenkins.plugins.scanner;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.Proc;
+import hudson.Launcher.ProcStarter;
+import hudson.EnvVars;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
@@ -18,6 +21,7 @@ import hudson.security.AccessControlled;
 import hudson.tasks.ArtifactArchiver;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
+import hudson.util.ArgumentListBuilder;
 import jenkins.model.ArtifactManager;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
@@ -42,9 +46,11 @@ import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredenti
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -65,8 +71,6 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String apiHost;
 
     private static final String binaryVersion = "1.6.0";
-    private static final String osName = System.getProperty("os.name").toLowerCase();
-    private static final String CLI_DOWNLOAD_PATH = System.getProperty("user.home") + File.separator + "appknox";
 
     @DataBoundConstructor
     public AppknoxScanner(String credentialsId, String filePath, String riskThreshold, String apiHost) {
@@ -95,7 +99,22 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     @Override
     public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener)
             throws InterruptedException, IOException {
+        if (workspace == null) {
+            listener.getLogger().println("Workspace is null.");
+            return;
+        }
+
         String reportName = "summary-report.csv";
+
+        // Determine if running on controller or agent
+        if (workspace.isRemote()) {
+            // Running on agent
+            listener.getLogger().println("Running on Agent...");
+        } else {
+            // Running on Controller
+            listener.getLogger().println("Running on Controller...");
+        }
+
         boolean success = executeAppknoxCommands(run, workspace, reportName, launcher, listener);
 
         if (success) {
@@ -114,35 +133,39 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
                 return false;
             }
 
-            Map<String, String> env = new HashMap<>(System.getenv());
+            // Create environment variables
+            EnvVars env = new EnvVars();
             env.put("APPKNOX_ACCESS_TOKEN", accessToken);
-            String appknoxPath = downloadAndInstallAppknox(osName, listener);
+
+            String appknoxPath = downloadAndInstallAppknox(workspace, listener, launcher);
 
             listener.getLogger().println("Selected Region: " + apiHost);
 
             // Determine if the file is an APK or IPA based on extension
-            String appFilePath = findAppFilePath(workspace.getRemote(), filePath, listener);
-
+            String appFilePath = findAppFilePath(workspace, filePath, listener);
             if (appFilePath == null) {
                 listener.getLogger().println("Neither APK nor IPA file found in the expected directories.");
                 return false;
             }
 
-            String uploadOutput = uploadFile(appknoxPath, listener, env, appFilePath);
+            String uploadOutput = uploadFile(appknoxPath, listener, env, appFilePath, launcher, workspace);
             String fileID = extractFileID(uploadOutput, listener);
             if (fileID == null) {
                 return false;
             }
 
-            runCICheck(appknoxPath, run, fileID, listener, env);
+            boolean cicheckSuccess = runCICheck(appknoxPath, run, fileID, listener, env, launcher, workspace);
+            if (!cicheckSuccess) {
+                return false;
+            }
 
-            String reportOutput = createReport(appknoxPath, fileID, listener, env);
+            String reportOutput = createReport(appknoxPath, fileID, listener, env, launcher, workspace);
             String reportID = extractReportID(reportOutput, listener);
             if (reportID == null) {
                 return false;
             }
 
-            downloadReportSummaryCSV(appknoxPath, reportName, reportID, run, workspace, listener, env);
+            downloadReportSummaryCSV(appknoxPath, reportName, reportID, run, workspace, listener, env, launcher);
         } catch (Exception e) {
             listener.getLogger().println("Error executing Appknox commands: " + e.getMessage());
             return false;
@@ -150,8 +173,82 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         return true;
     }
 
-    private String findAppFilePath(String workspace, String fileName, TaskListener listener) {
+    private String downloadAndInstallAppknox(FilePath workspace, TaskListener listener, Launcher launcher)
+            throws IOException, InterruptedException {
+        // Get the OS name of the node where the build is running
+        String osName = getOSName(launcher, listener);
 
+        String appknoxURL = getAppknoxDownloadURL(osName);
+        FilePath appknoxFile = workspace.child("appknox");
+
+        if (!appknoxFile.exists()) {
+            listener.getLogger().println("Downloading Appknox CLI...");
+            downloadFile(appknoxURL, appknoxFile, listener);
+            listener.getLogger().println("Appknox CLI downloaded successfully.");
+        } else {
+            listener.getLogger().println("Appknox CLI already exists at: " + appknoxFile.getRemote());
+        }
+
+        // Make the file executable (for Unix-based systems)
+        if (launcher.isUnix()) {
+            appknoxFile.chmod(0755);
+        }
+
+        listener.getLogger().println("Appknox CLI located at: " + appknoxFile.getRemote());
+        return appknoxFile.getRemote();
+    }
+
+    private String getOSName(Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
+        if (launcher.isUnix()) {
+            // Determine if it's Linux or macOS
+            ProcStarter procStarter = launcher.launch();
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+            procStarter.cmds("uname", "-s");
+            procStarter.stdout(outputStream);
+            procStarter.stderr(listener.getLogger());
+            int exitCode = procStarter.join();
+
+            if (exitCode == 0) {
+                String osName = outputStream.toString("UTF-8").trim();
+                listener.getLogger().println("Detected OS: " + osName);
+                if (osName.equalsIgnoreCase("Darwin")) {
+                    return "mac";
+                } else {
+                    return "linux";
+                }
+            } else {
+                listener.getLogger().println("Failed to determine OS using 'uname -s', defaulting to 'linux'");
+                return "linux";
+            }
+        } else {
+            return "win";
+        }
+    }
+
+    private void downloadFile(String url, FilePath destinationFile, TaskListener listener) throws IOException, InterruptedException {
+        URL downloadUrl = new URL(url);
+        try (InputStream in = downloadUrl.openStream()) {
+            destinationFile.copyFrom(in);
+        }
+    }
+
+    private String getAppknoxDownloadURL(String os) {
+        String binaryName;
+        if (os.contains("win")) {
+            binaryName = "appknox-Windows-x86_64.exe";
+        } else if (os.contains("mac")) {
+            binaryName = "appknox-Darwin-x86_64";
+        } else if (os.contains("linux")) {
+            binaryName = "appknox-Linux-x86_64";
+        } else {
+            throw new UnsupportedOperationException("Unsupported operating system for Appknox CLI download.");
+        }
+
+        return "https://github.com/appknox/appknox-go/releases/download/" + binaryVersion + "/" + binaryName;
+    }
+
+    private String findAppFilePath(FilePath workspace, String fileName, TaskListener listener) throws IOException, InterruptedException {
         // Determine if the file is an APK or IPA based on the extension
         boolean isApk = fileName.endsWith(".apk");
         boolean isIpa = fileName.endsWith(".ipa");
@@ -161,154 +258,71 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
         if (isApk) {
             possibleDirs.addAll(Arrays.asList(
-                    workspace + "/app/build/outputs/apk/",
-                    workspace + "/app/build/outputs/apk/release/",
-                    workspace + "/app/build/outputs/apk/debug/"
+                    "app/build/outputs/apk/",
+                    "app/build/outputs/apk/release/",
+                    "app/build/outputs/apk/debug/"
             ));
         } else if (isIpa) {
             possibleDirs.addAll(Arrays.asList(
-                    workspace + "/Build/Products/",
-                    workspace + "/Build/Products/Debug-iphoneos/",
-                    workspace + "/Build/Products/Release-iphoneos/"
+                    "Build/Products/",
+                    "Build/Products/Debug-iphoneos/",
+                    "Build/Products/Release-iphoneos/"
             ));
         }
 
         // Search in specified directories
         for (String dir : possibleDirs) {
-            File appFile = new File(dir, fileName);
-            if (appFile.exists() && appFile.isFile()) {
-                listener.getLogger().println("File found at: " + appFile.getAbsolutePath());
-                return appFile.getAbsolutePath();
+            FilePath appFile = workspace.child(dir).child(fileName);
+            if (appFile.exists() && !appFile.isDirectory()) {
+                listener.getLogger().println("File found at: " + appFile.getRemote());
+                return appFile.getRemote();
             }
         }
 
         // Fallback to recursive search starting from the build directory if not found in the above directories
-        String buildDir = isApk ? workspace + "/app/build" : workspace + "/Build";
-        String result = findAppFilePathRecursive(new File(buildDir), fileName, listener);
+        String buildDir = isApk ? "app/build" : "Build";
+        FilePath buildDirPath = workspace.child(buildDir);
+        String result = findAppFilePathRecursive(buildDirPath, fileName, listener);
         if (result != null) {
             listener.getLogger().println("File found during recursive search at: " + result);
             return result;
         }
 
         // Handle the case where an absolute path is given as part of the fileName
-        File customFile = new File(workspace, fileName);
-        if (customFile.exists() && customFile.isFile()) {
-            listener.getLogger().println("File found at specified absolute path: " + customFile.getAbsolutePath());
-            return customFile.getAbsolutePath();
-        } else if (customFile.isAbsolute()) {
-            listener.getLogger().println("File not found at specified absolute path: " + customFile.getAbsolutePath());
+        FilePath customFile = workspace.child(fileName);
+        if (customFile.exists() && !customFile.isDirectory()) {
+            listener.getLogger().println("File found at specified path: " + customFile.getRemote());
+            return customFile.getRemote();
+        } else if (new File(fileName).isAbsolute()) {
+            listener.getLogger().println("File not found at specified absolute path: " + fileName);
             return null;
         }
 
         // File not found
-        listener.getLogger().println("File not found in specified directories, through recursive search, or at the specified absolute path.");
+        listener.getLogger().println("File not found in specified directories, through recursive search, or at the specified path.");
         return null;
     }
 
-    private String findAppFilePathRecursive(File dir, String fileName, TaskListener listener) {
-        File[] files = dir.listFiles();
+    private String findAppFilePathRecursive(FilePath dir, String fileName, TaskListener listener) throws IOException, InterruptedException {
+        List<FilePath> files = dir.list();
         if (files != null) {
-            for (File file : files) {
+            for (FilePath file : files) {
                 if (file.isDirectory()) {
                     String result = findAppFilePathRecursive(file, fileName, listener);
                     if (result != null) {
                         return result;
                     }
                 } else if (file.getName().equals(fileName)) {
-                    listener.getLogger().println("File found during recursive search at: " + file.getAbsolutePath());
-                    return file.getAbsolutePath();
+                    listener.getLogger().println("File found during recursive search at: " + file.getRemote());
+                    return file.getRemote();
                 }
             }
         }
         return null;
     }
 
-
-    private String extractFileID(String uploadOutput, TaskListener listener) {
-        String[] lines = uploadOutput.split("\n");
-        if (lines.length > 0) {
-            String lastLine = lines[lines.length - 1].trim();
-            try {
-                return lastLine;
-            } catch (NumberFormatException e) {
-                listener.getLogger().println("Failed to extract file ID from upload output: " + lastLine);
-                return null;
-            }
-        } else {
-            listener.getLogger().println("Upload output does not contain any lines.");
-            return null;
-        }
-    }
-
-    private String extractReportID(String createReportOutput, TaskListener listener) {
-        String[] lines = createReportOutput.split("\n");
-        if (lines.length > 0) {
-            String lastLine = lines[lines.length - 1].trim();
-            try {
-                return lastLine;
-            } catch (NumberFormatException e) {
-                listener.getLogger().println("Failed to extract Report ID from report output: " + lastLine);
-                return null;
-            }
-        } else {
-            listener.getLogger().println("Report output does not contain any lines.");
-            return null;
-        }
-    }
-
-    private String downloadAndInstallAppknox(String os, TaskListener listener)
+    private String uploadFile(String appknoxPath, TaskListener listener, EnvVars env, String appFilePath, Launcher launcher, FilePath workspace)
             throws IOException, InterruptedException {
-        String appknoxURL = getAppknoxDownloadURL(os);
-        File appknoxFile = new File(CLI_DOWNLOAD_PATH);
-
-        if (!appknoxFile.exists()) {
-            listener.getLogger().println("Downloading Appknox CLI...");
-            downloadFile(appknoxURL, CLI_DOWNLOAD_PATH, listener);
-            listener.getLogger().println("Appknox CLI downloaded successfully.");
-        } else {
-            listener.getLogger().println("Appknox CLI already exists at: " + CLI_DOWNLOAD_PATH);
-        }
-
-        listener.getLogger().println("Appknox CLI located at: " + CLI_DOWNLOAD_PATH);
-        return CLI_DOWNLOAD_PATH;
-    }
-
-    private String getAppknoxDownloadURL(String os) {
-        String binaryName;
-        if (os.contains("win")) {
-            binaryName = "appknox-Windows-x86_64.exe";
-        } else if (os.contains("mac")) {
-            binaryName = "appknox-Darwin-x86_64";
-        } else if (os.contains("nix") || os.contains("nux") || os.contains("aix")) {
-            binaryName = "appknox-Linux-x86_64";
-        } else {
-            throw new UnsupportedOperationException("Unsupported operating system for Appknox CLI download.");
-        }
-
-        return "https://github.com/appknox/appknox-go/releases/download/" + binaryVersion + "/" + binaryName;
-    }
-
-    private void downloadFile(String url, String destinationPath, TaskListener listener) throws IOException {
-        URL downloadUrl = new URL(url);
-        File destinationFile = new File(destinationPath);
-        File parentDir = destinationFile.getParentFile();
-        if (!parentDir.exists() && !parentDir.mkdirs()) {
-            throw new IOException("Failed to create directories: " + parentDir.getAbsolutePath());
-        }
-        FileUtils.copyURLToFile(downloadUrl, destinationFile);
-
-        // Make the file executable (for Unix-based systems)
-        if (!System.getProperty("os.name").toLowerCase().contains("win") && !destinationFile.setExecutable(true)) {
-            listener.getLogger().println("Failed to set executable permission for: " + destinationPath);
-        }
-    }
-
-    private String uploadFile(String appknoxPath, TaskListener listener, Map<String, String> env, String appFilePath)
-            throws IOException, InterruptedException {
-        String accessToken = getAccessToken(listener);
-        if (accessToken == null) {
-            return null;
-        }
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("upload");
@@ -316,39 +330,33 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("--region");
         command.add(apiHost);
 
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.environment().putAll(env);
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
+        ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            String lastLine = null;
-            while ((line = reader.readLine()) != null) {
-                lastLine = line;
-            }
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-            if (lastLine != null) {
-                listener.getLogger().println("Upload Command Output :");
-                listener.getLogger().println("File ID = " + lastLine.trim());
-                return lastLine.trim();
-            } else {
-                listener.getLogger().println("Upload failed: No output received.");
-                return null;
-            }
-        } finally {
-            process.waitFor();
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).start();
+        int exitCode = proc.join();
+
+        if (exitCode != 0) {
+            listener.getLogger().println("Upload failed with exit code: " + exitCode);
+            return null;
         }
+
+        String output = outputStream.toString("UTF-8");
+        listener.getLogger().println("Upload Command Output:");
+        listener.getLogger().println(output);
+
+        String fileID = extractFileID(output, listener);
+        if (fileID == null) {
+            return null;
+        }
+        listener.getLogger().println("File ID = " + fileID);
+
+        return fileID;
     }
 
-    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, Map<String, String> env)
+    private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
             throws IOException, InterruptedException {
-        String accessToken = getAccessToken(listener);
-        if (accessToken == null) {
-            return false;
-        }
-
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("cicheck");
@@ -358,49 +366,34 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("--region");
         command.add(apiHost);
 
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.environment().putAll(env);
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
+        ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            StringBuilder output = new StringBuilder();
-            String line;
-            boolean foundStarted = false;
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-            while ((line = reader.readLine()) != null) {
-                if (!foundStarted) {
-                    if (line.contains("Found") || line.contains("No")) {
-                        output.append(line).append("\n");
-                        if (run != null) {
-                            run.setDescription(output.toString() + "Check Console Output for more details.");
-                        }
-                        foundStarted = true;
-                    }
-                } else {
-                    output.append(line).append("\n");
-                }
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).start();
+        int exitCode = proc.join();
+
+        String output = outputStream.toString("UTF-8").trim();
+        listener.getLogger().println("Ci Check Output:");
+        listener.getLogger().println(output);
+
+        if (exitCode != 0) {
+            listener.getLogger().println("CICheck failed with exit code: " + exitCode);
+            if (run != null) {
+                run.setDescription("CICheck failed. Check Console Output for more details.");
             }
-
-            if (!foundStarted) {
-                listener.getLogger().println("No line with 'Found' or 'No' encountered in the output.");
-                return false;
-            }
-            listener.getLogger().println("Ci Check Output:");
-            listener.getLogger().println(output.toString());
-
-            return process.exitValue() == 0;
+            return false;
         }
+
+        if (run != null) {
+            run.setDescription(output + " Check Console Output for more details.");
+        }
+
+        return true;
     }
 
-    private String createReport(String appknoxPath, String fileID, TaskListener listener, Map<String, String> env)
+    private String createReport(String appknoxPath, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
             throws IOException, InterruptedException {
-        String accessToken = getAccessToken(listener);
-        if (accessToken == null) {
-            return null;
-        }
-
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("reports");
@@ -409,38 +402,26 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("--region");
         command.add(apiHost);
 
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.environment().putAll(env);
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
+        ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
-        StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
-            }
-        }
-        listener.getLogger().println("Create Report Command Output :");
-        listener.getLogger().println("Report Id = " + output.toString());
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-        int exitValue = process.waitFor();
-        if (exitValue == 0) {
-            return output.toString().trim();
-        } else {
-            listener.getLogger().println("Report Creation failed with exit code: " + exitValue);
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).start();
+        int exitCode = proc.join();
+
+        String output = outputStream.toString("UTF-8").trim();
+        listener.getLogger().println("Create Report Command Output:");
+        listener.getLogger().println("Report Id = " + output);
+
+        if (exitCode != 0) {
+            listener.getLogger().println("Report Creation failed with exit code: " + exitCode);
             return null;
         }
+
+        return output;
     }
 
-    private void downloadReportSummaryCSV(String appknoxPath, String reportName, String reportID, Run<?, ?> run, FilePath workspace, TaskListener listener, Map<String, String> env) throws IOException, InterruptedException {
-        String accessToken = getAccessToken(listener);
-        if (accessToken == null) {
-            listener.error("Access token is null. Unable to download CSV report.");
-            return;
-        }
-
+    private void downloadReportSummaryCSV(String appknoxPath, String reportName, String reportID, Run<?, ?> run, FilePath workspace, TaskListener listener, EnvVars env, Launcher launcher) throws IOException, InterruptedException {
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("reports");
@@ -452,17 +433,17 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("--region");
         command.add(apiHost);
 
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.environment().putAll(env);
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
+        ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
-        int exitCode = process.waitFor();
-        if (exitCode == 0) {
-            listener.getLogger().println(
-                    "Summary report saved at:" + workspace.child(reportName).getRemote());
-        } else {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).start();
+        int exitCode = proc.join();
+
+        if (exitCode != 0) {
             listener.getLogger().println("Download CSV failed. Exit code: " + exitCode);
+        } else {
+            listener.getLogger().println("Summary report saved at: " + workspace.child(reportName).getRemote());
         }
     }
 
@@ -499,6 +480,28 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             return credentials.getSecret().getPlainText();
         } else {
             listener.getLogger().println("Failed to retrieve access token from credentials.");
+            return null;
+        }
+    }
+
+    private String extractFileID(String uploadOutput, TaskListener listener) {
+        String[] lines = uploadOutput.split("\\r?\\n");
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String line = lines[i].trim();
+            if (line.matches("\\d+")) {
+                // Line contains only digits, assume it's the file ID
+                return line;
+            }
+        }
+        listener.getLogger().println("Could not extract file ID from upload output.");
+        return null;
+    }
+
+    private String extractReportID(String createReportOutput, TaskListener listener) {
+        if (createReportOutput != null && !createReportOutput.isEmpty()) {
+            return createReportOutput.trim();
+        } else {
+            listener.getLogger().println("Report output does not contain any lines.");
             return null;
         }
     }
