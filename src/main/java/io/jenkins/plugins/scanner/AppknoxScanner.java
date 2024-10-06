@@ -68,14 +68,11 @@ import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 
-@Symbol("appKnoxScanner")
 public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
     private final String apiHost;
-
-    private static final String binaryVersion = "1.6.0";
 
     @DataBoundConstructor
     public AppknoxScanner(String credentialsId, String filePath, String riskThreshold, String apiHost) {
@@ -182,10 +179,11 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         String osName = getOSName(launcher, listener);
 
         String appknoxURL = getAppknoxDownloadURL(osName);
-        FilePath appknoxFile = workspace.child("appknox");
+        String binaryName = getBinaryName(osName);
+        FilePath appknoxFile = workspace.child(binaryName);
 
         if (!appknoxFile.exists()) {
-            listener.getLogger().println("Downloading Appknox CLI...");
+            listener.getLogger().println("Downloading Appknox CLI from: " + appknoxURL);
             downloadFile(appknoxURL, appknoxFile, listener);
             listener.getLogger().println("Appknox CLI downloaded successfully.");
         } else {
@@ -200,6 +198,19 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         listener.getLogger().println("Appknox CLI located at: " + appknoxFile.getRemote());
         return appknoxFile.getRemote();
     }
+
+    private String getBinaryName(String os) {
+        if (os.contains("win")) {
+            return "appknox-Windows-x86_64.exe";
+        } else if (os.contains("mac")) {
+            return "appknox-Darwin-x86_64";
+        } else if (os.contains("linux")) {
+            return "appknox-Linux-x86_64";
+        } else {
+            throw new UnsupportedOperationException("Unsupported operating system for Appknox CLI download.");
+        }
+    }
+
 
     private String getOSName(Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
         if (launcher.isUnix()) {
@@ -248,7 +259,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             throw new UnsupportedOperationException("Unsupported operating system for Appknox CLI download.");
         }
 
-        return "https://github.com/appknox/appknox-go/releases/download/" + binaryVersion + "/" + binaryName;
+        // Use the 'latest' tag to always get the latest release
+        return "https://github.com/appknox/appknox-go/releases/latest/download/" + binaryName;
     }
 
     private String findAppFilePath(FilePath workspace, String fileName, TaskListener listener) throws IOException, InterruptedException {
@@ -541,6 +553,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     }
 
     @Extension
+    @Symbol("appKnoxScanner")
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
         public DescriptorImpl() {
             super(AppknoxScanner.class);
