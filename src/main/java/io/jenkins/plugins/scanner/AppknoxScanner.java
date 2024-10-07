@@ -72,14 +72,14 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
-    private final String apiHost;
+    private final String region;
 
     @DataBoundConstructor
-    public AppknoxScanner(String credentialsId, String filePath, String riskThreshold, String apiHost) {
+    public AppknoxScanner(String credentialsId, String filePath, String riskThreshold, String region) {
         this.credentialsId = credentialsId;
         this.filePath = filePath;
         this.riskThreshold = riskThreshold;
-        this.apiHost = apiHost;
+        this.region = region;
     }
 
     public String getCredentialsId() {
@@ -94,8 +94,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         return riskThreshold;
     }
 
-    public String getApiHost() {
-        return apiHost;
+    public String getRegion() {
+        return region;
     }
 
     @Override
@@ -140,7 +140,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
             String appknoxPath = downloadAndInstallAppknox(workspace, listener, launcher);
 
-            listener.getLogger().println("Selected Region: " + apiHost);
+            listener.getLogger().println("Selected Region: " + region);
 
             // Determine if the file is an APK or IPA based on extension
             String appFilePath = findAppFilePath(workspace, filePath, listener);
@@ -343,7 +343,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("upload");
         command.add(appFilePath);
         command.add("--region");
-        command.add(apiHost);
+        command.add(region);
 
         ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
@@ -378,7 +378,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("--risk-threshold");
         command.add(riskThreshold);
         command.add("--region");
-        command.add(apiHost);
+        command.add(region);
 
         // Build the command arguments
         ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
@@ -439,7 +439,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("create");
         command.add(fileID);
         command.add("--region");
-        command.add(apiHost);
+        command.add(region);
 
         ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
@@ -477,7 +477,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("--output");
         command.add(workspace.child(reportName).getRemote());
         command.add("--region");
-        command.add(apiHost);
+        command.add(region);
 
         ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
@@ -571,7 +571,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
 
         @POST
-        public ListBoxModel doFillApiHostItems() {
+        public ListBoxModel doFillRegionItems() {
             return new ListBoxModel(
                     new ListBoxModel.Option("Global", "global"),
                     new ListBoxModel.Option("Saudi", "saudi")
