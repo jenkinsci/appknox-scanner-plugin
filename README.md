@@ -14,15 +14,15 @@ Generate a personal access token from <a href="https://secure.appknox.com/settin
 
 Select credentials options from Manage Jenkins -> Credentials:
 
-![Credentials](https://github.com/appknox/appknox-jenkins-plugin/blob/main/images/jenkins1.png)
+![Credentials](images/jenkins1.png)
 
 Store Appknox Access Token as Global Credential:
 
-![Global Credentials](https://github.com/appknox/appknox-jenkins-plugin/blob/main/images/jenkins2.png)
+![Global Credentials](mages/jenkins2.png)
 
 Select Kind as "Secret Text" and store the Appknox Access Token with desired "ID" and "Description":
 
-![Kind Credentials](https://github.com/appknox/appknox-jenkins-plugin/blob/main/images/jenkins4.png)
+![Kind Credentials](images/jenkins4.png)
 
 ## Appknox Plugin as Jenkins Job
 
@@ -30,19 +30,19 @@ Select Kind as "Secret Text" and store the Appknox Access Token with desired "ID
 
 Add job name and select Freestyle project:
 
-![Jenkins Job](https://github.com/appknox/appknox-jenkins-plugin/blob/main/images/jenkins5.png)
+![Jenkins Job](images/jenkins5.png)
 
 ### Step 2: Add Appknox Plugin
 
 Add Appknox Plugin from build step:
 
-![Appknox Plugin](https://github.com/appknox/appknox-jenkins-plugin/blob/main/images/jenkins6.png)
+![Appknox Plugin](images/jenkins6.png)
 
 ### Step 3: Configure Appknox Plugin
 
 Select Access Token from the dropdown:
 
-![Appknox Plugin Token](https://github.com/appknox/appknox-jenkins-plugin/blob/main/images/jenkins10.png)
+![Appknox Plugin Token](images/jenkins10.png)
 
 #### Note:
 
@@ -50,7 +50,7 @@ Ensure the Access Token matches with the Access Token given while configuring Ap
 
 Add other details in the Appknox Plugin Configuration:
 
-![Appknox Plugin Configuration](https://github.com/appknox/appknox-jenkins-plugin/blob/main/images/jenkins7.png)
+![Appknox Plugin Configuration](images/jenkins7.png)
 
 
 ## Appknox Plugin as Pipeline
