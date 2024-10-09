@@ -18,7 +18,7 @@ Select credentials options from Manage Jenkins -> Credentials:
 
 Store Appknox Access Token as Global Credential:
 
-![Global Credentials](mages/jenkins2.png)
+![Global Credentials](images/jenkins2.png)
 
 Select Kind as "Secret Text" and store the Appknox Access Token with desired "ID" and "Description":
 
@@ -59,13 +59,13 @@ Add other details in the Appknox Plugin Configuration:
 
 Add Pipeline name and select Pipeline project:
 
-![Jenkins Job](https://github.com/appknox/appknox-jenkins-plugin/blob/main/images/jenkins8.png)
+![Jenkins Job](images/jenkins8.png)
 
 ### Step 2: Appknox Plugin Pipeline Script
 
 Add Appknox Plugin Stage:
 
-![Appknox Plugin Pipeline](https://github.com/appknox/appknox-jenkins-plugin/blob/main/images/jenkins9.png)
+![Appknox Plugin Pipeline](images/jenkins9.png)
 
 #### Note:
 
