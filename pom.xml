@@ -27,9 +27,9 @@
     </licenses>
     
     <scm>
-        <connection>scm:git:https://github.com/appknox/appknox-jenkins-plugin.git</connection>
-        <developerConnection>scm:git:https://github.com/appknox/appknox-jenkins-plugin</developerConnection>
-        <url>https://github.com/jenkinsci/appknox-jenkins-plugin</url>
+        <connection>scm:git:https://github.com/appknox/appknox-scanner-plugin.git</connection>
+        <developerConnection>scm:git:https://github.com/appknox/appknox-scanner-plugin</developerConnection>
+        <url>https://github.com/jenkinsci/appknox-scanner-plugin</url>
         <tag>HEAD</tag>
     </scm>
     
