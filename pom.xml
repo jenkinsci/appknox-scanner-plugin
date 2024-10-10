@@ -11,7 +11,7 @@
     
     <groupId>io.jenkins.plugins</groupId>
     <artifactId>appknox-scanner</artifactId>
-    <version>1.0</version>
+    <version>${revision}${changelist}</version>
     <packaging>hpi</packaging>
     
     <name>Appknox Security Scanner</name>
@@ -25,13 +25,16 @@
     </licenses>
     
     <scm>
-        <connection>scm:git:https://github.com/appknox/appknox-scanner-plugin.git</connection>
-        <developerConnection>scm:git:https://github.com/appknox/appknox-scanner-plugin</developerConnection>
-        <url>https://github.com/jenkinsci/appknox-scanner-plugin</url>
-        <tag>HEAD</tag>
+        <connection>scm:git:https://github.com/${gitHubRepo}.git</connection>
+        <developerConnection>scm:git:https://github.com/${gitHubRepo}</developerConnection>
+        <url>https://github.com/${gitHubRepo}</url>
+        <tag>${scmTag}</tag>
     </scm>
     
     <properties>
+        <revision>1.1</revision>
+        <changelist>-SNAPSHOT</changelist>
+        <gitHubRepo>jenkinsci/appknox-scanner-plugin</gitHubRepo>
         <jenkins.version>2.440.3</jenkins.version>
     </properties>
     
