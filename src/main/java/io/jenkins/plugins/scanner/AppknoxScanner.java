@@ -155,9 +155,17 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
                 return false;
             }
 
-            // Run CICheck
-            runCICheck(appknoxPath, run, fileID, listener, env, launcher, workspace);
-            // Do not return false if cicheck fails; allow the build to continue
+            // Run CICheck and capture the result
+            boolean ciCheckSuccess = runCICheck(appknoxPath, run, fileID, listener, env, launcher, workspace);
+            if (!ciCheckSuccess) {
+                // Set the build result to FAILURE
+                if (run != null) {
+                    listener.getLogger().println(
+                            "Vulnerabilities detected. Failing the build.");
+                    run.setResult(Result.FAILURE);
+                }
+                // Continue execution to generate the report and archive the artifact
+            }
 
             String reportOutput = createReport(appknoxPath, fileID, listener, env, launcher, workspace);
             String reportID = extractReportID(reportOutput, listener);
@@ -210,7 +218,6 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             throw new UnsupportedOperationException("Unsupported operating system for Appknox CLI download.");
         }
     }
-
 
     private String getOSName(Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
         if (launcher.isUnix()) {
@@ -429,7 +436,6 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         // Handle the process exit code by returning success based on exit code
         return exitCode == 0;
     }
-
 
     private String createReport(String appknoxPath, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
             throws IOException, InterruptedException {
