@@ -161,7 +161,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
                 // Set the build result to FAILURE
                 if (run != null) {
                     listener.getLogger().println(
-                            "Vulnerabilities detected. Failing the build.");
+                            "Vulnerabilities detected. Aborting the build process.");
                     run.setResult(Result.FAILURE);
                 }
                 // Continue execution to generate the report and archive the artifact
