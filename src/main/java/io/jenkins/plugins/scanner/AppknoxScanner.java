@@ -26,6 +26,8 @@ import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.AbortException;
+
 import jenkins.model.ArtifactManager;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
@@ -174,8 +176,14 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             }
 
             downloadReportSummaryCSV(appknoxPath, reportName, reportID, run, workspace, listener, env, launcher);
+        } catch (AbortException e) {
+            // Re-throw AbortException to stop the pipeline
+            throw e;
         } catch (Exception e) {
-            listener.getLogger().println("Error executing Appknox commands: " + e.getMessage());
+            listener.error("Error executing Appknox commands: " + e.getMessage());
+            if (run != null) {
+                run.setResult(Result.FAILURE);
+            }
             return false;
         }
         return true;
@@ -433,8 +441,18 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         String finalOutput = outputBuilder.toString().trim();
         listener.getLogger().println(finalOutput);
 
-        // Handle the process exit code by returning success based on exit code
-        return exitCode == 0;
+        // Handle the process exit code
+        if (exitCode != 0) {
+            if (run != null) {
+                String errorMsg = "Vulnerabilities detected. Failing the build.";
+                listener.error(errorMsg);
+                run.setResult(Result.FAILURE);
+                throw new AbortException(errorMsg);
+            }
+            return false;
+        }
+        return true;
+
     }
 
     private String createReport(String appknoxPath, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
