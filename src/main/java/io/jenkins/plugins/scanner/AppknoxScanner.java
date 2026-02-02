@@ -26,6 +26,8 @@ import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+import hudson.AbortException;
+
 import jenkins.model.ArtifactManager;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
@@ -100,7 +102,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
     @Override
     public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener)
-            throws InterruptedException, IOException {
+            throws InterruptedException, IOException, AbortException {
         if (workspace == null) {
             listener.getLogger().println("Workspace is null.");
             return;
@@ -127,7 +129,9 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 
-    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) {
+    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) 
+            throws IOException, InterruptedException, AbortException {
+
         try {
             String accessToken = getAccessToken(listener);
             if (accessToken == null) {
@@ -174,8 +178,14 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             }
 
             downloadReportSummaryCSV(appknoxPath, reportName, reportID, run, workspace, listener, env, launcher);
+        } catch (AbortException e) {
+            // Re-throw AbortException to stop the pipeline
+            throw e;
         } catch (Exception e) {
-            listener.getLogger().println("Error executing Appknox commands: " + e.getMessage());
+            listener.error("Error executing Appknox commands: " + e.getMessage());
+            if (run != null) {
+                run.setResult(Result.FAILURE);
+            }
             return false;
         }
         return true;
@@ -371,12 +381,14 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
         listener.getLogger().println("Upload Command Output:");
         listener.getLogger().println("File ID = " + fileID);
+        String fileUrl = Region.fromValue(region).getBaseUrl() + "dashboard/file/" + fileID;
+        listener.getLogger().println("File URL = " + fileUrl);
 
         return fileID;
     }
 
     private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
-            throws IOException, InterruptedException {
+            throws IOException, InterruptedException, AbortException {
         // Construct the cicheck command
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
@@ -433,8 +445,16 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         String finalOutput = outputBuilder.toString().trim();
         listener.getLogger().println(finalOutput);
 
-        // Handle the process exit code by returning success based on exit code
-        return exitCode == 0;
+        // Handle the process exit code
+        if (exitCode != 0) {
+            if (run != null) {
+                run.setResult(Result.FAILURE);
+                throw new AbortException("Vulnerabilities detected. Failing the build.");
+            }
+            return false;
+        }
+        return true;
+
     }
 
     private String createReport(String appknoxPath, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
@@ -578,10 +598,11 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
         @POST
         public ListBoxModel doFillRegionItems() {
-            return new ListBoxModel(
-                    new ListBoxModel.Option("Global", "global"),
-                    new ListBoxModel.Option("Saudi", "saudi")
-            );
+            ListBoxModel items = new ListBoxModel();
+            for (Region region : Region.values()) {
+                items.add(new ListBoxModel.Option(region.getDisplayName(), region.getValue()));
+            }
+            return items;
         }
 
         @SuppressWarnings("deprecation")
