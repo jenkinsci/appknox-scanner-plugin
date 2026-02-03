@@ -102,7 +102,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
     @Override
     public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener)
-            throws InterruptedException, IOException {
+            throws InterruptedException, IOException, AbortException {
         if (workspace == null) {
             listener.getLogger().println("Workspace is null.");
             return;
@@ -129,7 +129,9 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 
-    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) {
+    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) 
+            throws IOException, InterruptedException, AbortException {
+
         try {
             String accessToken = getAccessToken(listener);
             if (accessToken == null) {
@@ -384,7 +386,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     }
 
     private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
-            throws IOException, InterruptedException {
+            throws IOException, InterruptedException, AbortException {
         // Construct the cicheck command
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
@@ -598,7 +600,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         public ListBoxModel doFillRegionItems() {
             return new ListBoxModel(
                     new ListBoxModel.Option("Global", "global"),
-                    new ListBoxModel.Option("Saudi", "saudi")
+                    new ListBoxModel.Option("Saudi", "saudi"),
+                    new ListBoxModel.Option("UAE", "uae")
             );
         }
 
@@ -650,3 +653,5 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 }
+git clone https://github.com/ginilpg/mfva .
+fatal: destination path '.' already exists and is not an empty directory.
