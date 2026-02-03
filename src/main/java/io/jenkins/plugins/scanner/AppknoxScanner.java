@@ -653,5 +653,3 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 }
-git clone https://github.com/ginilpg/mfva .
-fatal: destination path '.' already exists and is not an empty directory.
