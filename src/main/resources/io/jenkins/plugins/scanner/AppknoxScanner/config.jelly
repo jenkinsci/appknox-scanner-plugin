@@ -17,10 +17,7 @@
             </select>
         </f:entry>
         <f:entry title="${%region}" field="region">
-            <f:select field="region">
-                <f:option value="global">Global</f:option>
-                <f:option value="saudi">Saudi</f:option>
-            </f:select>
+            <f:select field="region" />
         </f:entry>
         <f:entry title="${%note}">
             <p>${%requiredFields}</p>
