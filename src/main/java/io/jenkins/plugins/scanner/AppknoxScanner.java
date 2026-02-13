@@ -605,6 +605,16 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             return items;
         }
 
+        @POST
+        public ListBoxModel doFillRiskThresholdItems(@QueryParameter String riskThreshold) {
+            ListBoxModel items = new ListBoxModel();
+            items.add(new ListBoxModel.Option("LOW", "LOW", "LOW".equals(riskThreshold)));
+            items.add(new ListBoxModel.Option("MEDIUM", "MEDIUM", "MEDIUM".equals(riskThreshold)));
+            items.add(new ListBoxModel.Option("HIGH", "HIGH", "HIGH".equals(riskThreshold)));
+            items.add(new ListBoxModel.Option("CRITICAL", "CRITICAL", "CRITICAL".equals(riskThreshold)));
+            return items;
+        }
+
         @SuppressWarnings("deprecation")
         @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath ItemGroup<?> context) {
