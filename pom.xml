@@ -36,14 +36,16 @@
         <revision>1.0.5</revision>
         <changelist>-SNAPSHOT</changelist>
         <gitHubRepo>jenkinsci/appknox-scanner-plugin</gitHubRepo>
-        <jenkins.version>2.440.3</jenkins.version>
+        <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
+        <jenkins.baseline>2.440</jenkins.baseline>
+        <jenkins.version>${jenkins.baseline}.3</jenkins.version>
     </properties>
     
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-2.440.x</artifactId>
+                <artifactId>bom-${jenkins.baseline}.x</artifactId>
                 <version>3180.vc1df4d5b_8097</version>
                 <type>pom</type>
                 <scope>import</scope>
