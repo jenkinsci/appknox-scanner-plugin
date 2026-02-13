@@ -9,12 +9,7 @@
             <f:textbox field = "filePath"/>
         </f:entry>
         <f:entry title="${%riskThreshold}" field="riskThreshold">
-            <select name="riskThreshold">
-                <option value="LOW" st:bind="true">LOW</option>
-                <option value="MEDIUM" st:bind="true">MEDIUM</option>
-                <option value="HIGH" st:bind="true">HIGH</option>
-                <option value="CRITICAL" st:bind="true">CRITICAL</option>
-            </select>
+            <f:select field="riskThreshold" />
         </f:entry>
         <f:entry title="${%region}" field="region">
             <f:select field="region" />
