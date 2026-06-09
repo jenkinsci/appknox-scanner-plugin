@@ -73,44 +73,44 @@ Ensure the Appknox Access Token ID matches with the ID given while configuring A
 
 #### In your Pipeline Stages Add this after building your Application stage:-
 
-```
+```groovy
 stages {
-        stage('Appknox Scan') {
-            steps {
-                script {
-                        // Perform Appknox scan using AppknoxScanner
-                        appKnoxScanner(
-                            credentialsId: 'your-appknox-access-token-ID', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
-                            filePath: FILE_PATH,
-                            riskThreshold: params.RISK_THRESHOLD.toUpperCase(),
-                            region: params.Region // Pass the region parameter as expected
-                        )
-                    
-                }
+    stage('Appknox Scan') {
+        steps {
+            script {
+                appKnoxScanner(
+                    credentialsId: 'your-appknox-access-token-ID', // Specify the Appknox Access Token ID that was set when storing the token in Jenkins credentials.
+                    filePath: FILE_PATH,
+                    riskThreshold: params.RISK_THRESHOLD,
+                    region: params.REGION,
+                    generatePdfReport: params.GENERATE_PDF // set to true to download a password-protected PDF report
+                )
             }
         }
     }
-    
+}
 ```
 
 ## Inputs
 
-| Key               | Value                        |
-|-------------------|------------------------------|
-| `credentialsId`   | Personal appknox access token ID |
-| `file_path`       | Specify the build file name or path for the mobile application binary to upload, E.g. app-debug.apk, app/build/apk/app-debug.apk |
-| `risk_threshold`  | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
-| `region`          | Specify the Appknox region. <br><br>Accepted values: `global`, `uae`, `saudi` <br><br>Default: `global` |
+| Key                 | Value                        |
+|---------------------|------------------------------|
+| `credentialsId`     | Personal appknox access token ID |
+| `filePath`          | Specify the build file name or path for the mobile application binary to upload, E.g. app-debug.apk, app/build/apk/app-debug.apk |
+| `riskThreshold`     | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
+| `region`            | Specify the Appknox region. <br><br>Accepted values: `global`, `uae`, `saudi` <br><br>Default: `global` |
+| `generatePdfReport` | (Optional) Download a PDF VAPT report after the scan. The report is password-protected. <br><br>Accepted values: `true`, `false` <br><br>Default: `false` |
 
 ---
 
 ## Example Script:
-```
+```groovy
 pipeline {
     agent any
     parameters {
         choice(name: 'RISK_THRESHOLD', choices: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], description: 'Risk Threshold')
-        choice(name: 'Region', choices: ['global', 'uae', 'saudi'], description: 'Appknox Regions')
+        choice(name: 'REGION', choices: ['global', 'uae', 'saudi'], description: 'Appknox Region')
+        booleanParam(name: 'GENERATE_PDF', defaultValue: false, description: 'Download PDF report')
     }
     stages {
         stage('Checkout') {
@@ -120,28 +120,26 @@ pipeline {
         }
         stage('Build App') {
             steps {
-                // Build the app using specific build, Example is given using gradle
+                // Build the app using your build tool. Example uses Gradle.
                 script {
                     sh './gradlew build'
-                    FILE_PATH = "app/build/outputs/apk/debug/app.aab"
+                    FILE_PATH = "app/build/outputs/apk/debug/app-debug.apk"
                 }
             }
         }
         stage('Appknox Scan') {
             steps {
                 script {
-                        // Perform Appknox scan using AppknoxScanner
-                        appKnoxScanner(
-                            credentialsId: 'your-appknox-access-token-ID', //Specify the Appknox Access Token ID. Ensure the ID matches with the ID given while configuring Appknox Access Token in the credentials.
-                            filePath: FILE_PATH,
-                            riskThreshold: params.RISK_THRESHOLD.toUpperCase(),
-                            region: params.Region // Pass the region parameter as expected
-                        )
-                    
+                    appKnoxScanner(
+                        credentialsId: 'your-appknox-access-token-ID', // Specify the Appknox Access Token ID that was set when storing the token in Jenkins credentials.
+                        filePath: FILE_PATH,
+                        riskThreshold: params.RISK_THRESHOLD,
+                        region: params.REGION,
+                        generatePdfReport: params.GENERATE_PDF // set to true to download a password-protected PDF report
+                    )
                 }
             }
         }
     }
 }
-
 ```

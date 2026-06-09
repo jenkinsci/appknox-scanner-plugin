@@ -1,6 +1,7 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
     xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <div style="background-color: #f0f4ff; border: 1px solid #c5d0e8; border-radius: 6px; padding: 12px 16px; margin: 4px 0;">
     <f:section title="Appknox Security Scanner Configuration">
         <f:entry title="${%credentialsId}" field="credentialsId">
             <f:select field="credentialsId" />
@@ -14,8 +15,13 @@
         <f:entry title="${%region}" field="region">
             <f:select field="region" />
         </f:entry>
-        <f:entry title="${%note}">
+        <f:entry title="${%generatePdfReport}" field="generatePdfReport">
+            <f:checkbox />
+            <div style="margin-top: 1px; color: #666; font-size: 0.9em;">${%generatePdfReportNote}</div>
+        </f:entry>
+        <f:entry>
             <p>${%requiredFields}</p>
         </f:entry>
     </f:section>
+    </div>
 </j:jelly>

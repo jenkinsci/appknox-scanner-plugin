@@ -11,16 +11,11 @@ import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Item;
 import hudson.model.ItemGroup;
-import hudson.model.Queue;
 import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import hudson.model.queue.Tasks;
-import hudson.model.ItemGroup;
-import hudson.model.Item;
 import hudson.security.ACL;
 import hudson.security.AccessControlled;
-import hudson.tasks.ArtifactArchiver;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
@@ -31,50 +26,40 @@ import hudson.AbortException;
 import jenkins.model.ArtifactManager;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
-import jenkins.util.VirtualFile;
 
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
 
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
-import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
-import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.apache.commons.io.FileUtils;
 
 public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
     private final String region;
+    private boolean generatePdfReport;
 
     @DataBoundConstructor
     public AppknoxScanner(String credentialsId, String filePath, String riskThreshold, String region) {
@@ -100,6 +85,15 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         return region;
     }
 
+    public boolean isGeneratePdfReport() {
+        return generatePdfReport;
+    }
+
+    @DataBoundSetter
+    public void setGeneratePdfReport(boolean generatePdfReport) {
+        this.generatePdfReport = generatePdfReport;
+    }
+
     @Override
     public void perform(Run<?, ?> run, FilePath workspace, Launcher launcher, TaskListener listener)
             throws InterruptedException, IOException, AbortException {
@@ -120,16 +114,14 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
         boolean success = executeAppknoxCommands(run, workspace, reportName, launcher, listener);
 
-        if (success) {
-            archiveArtifact(run, workspace, reportName, launcher, listener);
-        } else {
+        if (!success) {
             if (run != null) {
                 run.setResult(Result.FAILURE);
             }
         }
     }
 
-    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) 
+    private boolean executeAppknoxCommands(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener)
             throws IOException, InterruptedException, AbortException {
 
         try {
@@ -153,31 +145,36 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
                 return false;
             }
 
-            String uploadOutput = uploadFile(appknoxPath, listener, env, appFilePath, launcher, workspace);
-            String fileID = extractFileID(uploadOutput, listener);
+            String fileID = uploadFile(appknoxPath, listener, env, appFilePath, launcher, workspace);
             if (fileID == null) {
                 return false;
             }
 
             // Run CICheck and capture the result
             boolean ciCheckSuccess = runCICheck(appknoxPath, run, fileID, listener, env, launcher, workspace);
-            if (!ciCheckSuccess) {
-                // Set the build result to FAILURE
-                if (run != null) {
-                    listener.getLogger().println(
-                            "Vulnerabilities detected. Aborting the build process.");
-                    run.setResult(Result.FAILURE);
-                }
-                // Continue execution to generate the report and archive the artifact
-            }
 
-            String reportOutput = createReport(appknoxPath, fileID, listener, env, launcher, workspace);
-            String reportID = extractReportID(reportOutput, listener);
+            // Always generate and download reports regardless of cicheck result
+            String reportID = createReport(appknoxPath, fileID, listener, env, launcher, workspace);
             if (reportID == null) {
                 return false;
             }
 
-            downloadReportSummaryCSV(appknoxPath, reportName, reportID, run, workspace, listener, env, launcher);
+            String csvRelativePath = "reports/" + fileID + "/" + reportName;
+            downloadReportSummaryCSV(appknoxPath, csvRelativePath, reportID, run, workspace, listener, env, launcher);
+            archiveArtifact(run, workspace, csvRelativePath, launcher, listener);
+
+            if (generatePdfReport) {
+                downloadReportPDF(appknoxPath, reportID, fileID, run, workspace, listener, env, launcher);
+                String pdfRelativePath = "reports/" + fileID + "/report_" + fileID + ".pdf";
+                String passwordRelativePath = "reports/" + fileID + "/report_" + fileID + "_password.txt";
+                archiveArtifact(run, workspace, pdfRelativePath, launcher, listener);
+                archiveArtifact(run, workspace, passwordRelativePath, launcher, listener);
+            }
+
+            // Abort after reports are downloaded if vulnerabilities were found
+            if (!ciCheckSuccess) {
+                throw new AbortException("Vulnerabilities detected. Failing the build.");
+            }
         } catch (AbortException e) {
             // Re-throw AbortException to stop the pipeline
             throw e;
@@ -195,9 +192,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             throws IOException, InterruptedException {
         // Get the OS name of the node where the build is running
         String osName = getOSName(launcher, listener);
+        String arch = getArch(launcher, listener);
 
-        String appknoxURL = getAppknoxDownloadURL(osName);
-        String binaryName = getBinaryName(osName);
+        String appknoxURL = getAppknoxDownloadURL(osName, arch);
+        String binaryName = getBinaryName(osName, arch);
         FilePath appknoxFile = workspace.child(binaryName);
 
         if (!appknoxFile.exists()) {
@@ -217,11 +215,11 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         return appknoxFile.getRemote();
     }
 
-    private String getBinaryName(String os) {
+    private String getBinaryName(String os, String arch) {
         if (os.contains("win")) {
             return "appknox-Windows-x86_64.exe";
         } else if (os.contains("mac")) {
-            return "appknox-Darwin-x86_64";
+            return arch.contains("arm64") || arch.contains("aarch64") ? "appknox-Darwin-arm64" : "appknox-Darwin-x86_64";
         } else if (os.contains("linux")) {
             return "appknox-Linux-x86_64";
         } else {
@@ -257,6 +255,24 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 
+    private String getArch(Launcher launcher, TaskListener listener) throws IOException, InterruptedException {
+        if (!launcher.isUnix()) {
+            return "x86_64";
+        }
+        ProcStarter procStarter = launcher.launch();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        procStarter.cmds("uname", "-m");
+        procStarter.stdout(outputStream);
+        procStarter.stderr(listener.getLogger());
+        int exitCode = procStarter.join();
+        if (exitCode == 0) {
+            String arch = outputStream.toString("UTF-8").trim().toLowerCase();
+            listener.getLogger().println("Detected arch: " + arch);
+            return arch;
+        }
+        return "x86_64";
+    }
+
     private void downloadFile(String url, FilePath destinationFile, TaskListener listener) throws IOException, InterruptedException {
         URL downloadUrl = new URL(url);
         try (InputStream in = downloadUrl.openStream()) {
@@ -264,18 +280,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 
-    private String getAppknoxDownloadURL(String os) {
-        String binaryName;
-        if (os.contains("win")) {
-            binaryName = "appknox-Windows-x86_64.exe";
-        } else if (os.contains("mac")) {
-            binaryName = "appknox-Darwin-x86_64";
-        } else if (os.contains("linux")) {
-            binaryName = "appknox-Linux-x86_64";
-        } else {
-            throw new UnsupportedOperationException("Unsupported operating system for Appknox CLI download.");
-        }
-
+    private String getAppknoxDownloadURL(String os, String arch) {
+        String binaryName = getBinaryName(os, arch);
         // Use the 'latest' tag to always get the latest release
         return "https://github.com/appknox/appknox-go/releases/latest/download/" + binaryName;
     }
@@ -365,12 +371,17 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ByteArrayOutputStream errorStream = new ByteArrayOutputStream();
 
-        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).quiet(true).start();
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).stderr(errorStream).pwd(workspace).quiet(true).start();
         int exitCode = proc.join();
 
         if (exitCode != 0) {
+            String errOutput = errorStream.toString("UTF-8").trim();
+            String stdOutput = outputStream.toString("UTF-8").trim();
             listener.getLogger().println("Upload failed with exit code: " + exitCode);
+            if (!errOutput.isEmpty()) listener.getLogger().println("Error: " + errOutput);
+            if (!stdOutput.isEmpty()) listener.getLogger().println("Output: " + stdOutput);
             return null;
         }
 
@@ -445,11 +456,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         String finalOutput = outputBuilder.toString().trim();
         listener.getLogger().println(finalOutput);
 
-        // Handle the process exit code
+        // Handle the process exit code — return false so caller can finish report download before aborting
         if (exitCode != 0) {
             if (run != null) {
                 run.setResult(Result.FAILURE);
-                throw new AbortException("Vulnerabilities detected. Failing the build.");
             }
             return false;
         }
@@ -519,9 +529,41 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 
-    private void archiveArtifact(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) {
+    private void downloadReportPDF(String appknoxPath, String reportID, String fileID, Run<?, ?> run, FilePath workspace, TaskListener listener, EnvVars env, Launcher launcher)
+            throws IOException, InterruptedException {
+        String pdfOutputDir = workspace.child("reports").getRemote();
+
+        List<String> command = new ArrayList<>();
+        command.add(appknoxPath);
+        command.add("reports");
+        command.add("download");
+        command.add("pdf");
+        command.add(reportID);
+        command.add("--output");
+        command.add(pdfOutputDir);
+        command.add("--region");
+        command.add(region);
+
+        ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+        listener.getLogger().println("Downloading PDF report (this may take a few minutes)...");
+        Proc proc = launcher.launch().cmds(args).envs(env).stdout(outputStream).pwd(workspace).quiet(false).start();
+        int exitCode = proc.join();
+
+        String output = outputStream.toString("UTF-8").trim();
+        if (!output.isEmpty()) {
+            listener.getLogger().println(output);
+        }
+
+        if (exitCode != 0) {
+            listener.getLogger().println("PDF report download failed with exit code: " + exitCode);
+        }
+    }
+
+    private void archiveArtifact(Run<?, ?> run, FilePath workspace, String relativePath, Launcher launcher, TaskListener listener) {
         try {
-            FilePath artifactFile = workspace.child(reportName);
+            FilePath artifactFile = workspace.child(relativePath);
 
             if (!artifactFile.exists()) {
                 listener.error("Artifact file does not exist: " + artifactFile.getRemote());
@@ -530,10 +572,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
             ArtifactManager artifactManager = run.getArtifactManager();
             Map<String, String> artifacts = new HashMap<>();
-            artifacts.put(reportName, artifactFile.getName());
+            artifacts.put(relativePath, relativePath);
             artifactManager.archive(workspace, launcher, (BuildListener) listener, artifacts);
 
-            listener.getLogger().println("Artifact archived: " + artifactFile.getRemote());
+            listener.getLogger().println("Artifact archived to build: " + relativePath);
         } catch (IOException | InterruptedException e) {
             listener.error("Error archiving artifact: " + e.getMessage());
             e.printStackTrace(listener.getLogger());
