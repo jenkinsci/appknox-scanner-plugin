@@ -159,11 +159,16 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
                 return false;
             }
 
-            downloadReportSummaryCSV(appknoxPath, reportName, reportID, run, workspace, listener, env, launcher);
-            archiveArtifact(run, workspace, reportName, launcher, listener);
+            String csvRelativePath = "reports/" + fileID + "/" + reportName;
+            downloadReportSummaryCSV(appknoxPath, csvRelativePath, reportID, run, workspace, listener, env, launcher);
+            archiveArtifact(run, workspace, csvRelativePath, launcher, listener);
 
             if (generatePdfReport) {
                 downloadReportPDF(appknoxPath, reportID, fileID, run, workspace, listener, env, launcher);
+                String pdfRelativePath = "reports/" + fileID + "/report_" + fileID + ".pdf";
+                String passwordRelativePath = "reports/" + fileID + "/report_" + fileID + "_password.txt";
+                archiveArtifact(run, workspace, pdfRelativePath, launcher, listener);
+                archiveArtifact(run, workspace, passwordRelativePath, launcher, listener);
             }
 
             // Abort after reports are downloaded if vulnerabilities were found
@@ -553,17 +558,12 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
         if (exitCode != 0) {
             listener.getLogger().println("PDF report download failed with exit code: " + exitCode);
-        } else {
-            String pdfPath = pdfOutputDir + File.separator + fileID + File.separator + "report_" + fileID + ".pdf";
-            String passwordPath = pdfOutputDir + File.separator + fileID + File.separator + "report_" + fileID + "_password.txt";
-            listener.getLogger().println("PDF report saved at: " + pdfPath);
-            listener.getLogger().println("PDF password saved at: " + passwordPath);
         }
     }
 
-    private void archiveArtifact(Run<?, ?> run, FilePath workspace, String reportName, Launcher launcher, TaskListener listener) {
+    private void archiveArtifact(Run<?, ?> run, FilePath workspace, String relativePath, Launcher launcher, TaskListener listener) {
         try {
-            FilePath artifactFile = workspace.child(reportName);
+            FilePath artifactFile = workspace.child(relativePath);
 
             if (!artifactFile.exists()) {
                 listener.error("Artifact file does not exist: " + artifactFile.getRemote());
@@ -572,10 +572,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
             ArtifactManager artifactManager = run.getArtifactManager();
             Map<String, String> artifacts = new HashMap<>();
-            artifacts.put(reportName, artifactFile.getName());
+            artifacts.put(relativePath, relativePath);
             artifactManager.archive(workspace, launcher, (BuildListener) listener, artifacts);
 
-            listener.getLogger().println("Artifact archived: " + artifactFile.getRemote());
+            listener.getLogger().println("Artifact archived to build: " + relativePath);
         } catch (IOException | InterruptedException e) {
             listener.error("Error archiving artifact: " + e.getMessage());
             e.printStackTrace(listener.getLogger());
