@@ -58,14 +58,16 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
     private final String riskThreshold;
+    private final String healthScoreThreshold;
     private final String region;
     private boolean generatePdfReport;
 
     @DataBoundConstructor
-    public AppknoxScanner(String credentialsId, String filePath, String riskThreshold, String region) {
+    public AppknoxScanner(String credentialsId, String filePath, String riskThreshold, String healthScoreThreshold, String region) {
         this.credentialsId = credentialsId;
         this.filePath = filePath;
         this.riskThreshold = riskThreshold;
+        this.healthScoreThreshold = healthScoreThreshold;
         this.region = region;
     }
 
@@ -79,6 +81,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
     public String getRiskThreshold() {
         return riskThreshold;
+    }
+
+    public String getHealthScoreThreshold() {
+        return healthScoreThreshold;
     }
 
     public String getRegion() {
@@ -400,13 +406,28 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
     private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
             throws IOException, InterruptedException, AbortException {
+        // Validate that only one threshold is provided
+        boolean hasRiskThreshold = riskThreshold != null && !riskThreshold.trim().isEmpty();
+        boolean hasHealthScoreThreshold = healthScoreThreshold != null && !healthScoreThreshold.trim().isEmpty();
+        
+        if (hasRiskThreshold && hasHealthScoreThreshold) {
+            throw new AbortException("Only one of risk-threshold or health-score-threshold can be provided");
+        }
+        
         // Construct the cicheck command
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("cicheck");
         command.add(fileID);
-        command.add("--risk-threshold");
-        command.add(riskThreshold);
+        
+        if (hasHealthScoreThreshold) {
+            command.add("--health-score-threshold");
+            command.add(healthScoreThreshold);
+        } else {
+            command.add("--risk-threshold");
+            command.add(riskThreshold);
+        }
+        
         command.add("--region");
         command.add(region);
 
@@ -700,6 +721,22 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             if (value.isEmpty() || (!value.equals("LOW") && !value.equals("MEDIUM") && !value.equals("HIGH")
                     && !value.equals("CRITICAL"))) {
                 return FormValidation.error("Risk Threshold must be one of: LOW, MEDIUM, HIGH, CRITICAL");
+            }
+            return FormValidation.ok();
+        }
+
+        @POST
+        public FormValidation doCheckHealthScoreThreshold(@QueryParameter String value) {
+            Jenkins.get().checkPermission(Item.CONFIGURE);
+            if (value != null && !value.trim().isEmpty()) {
+                try {
+                    int threshold = Integer.parseInt(value.trim());
+                    if (threshold < 0 || threshold > 100) {
+                        return FormValidation.error("Health Score Threshold must be between 0 and 100");
+                    }
+                } catch (NumberFormatException e) {
+                    return FormValidation.error("Health Score Threshold must be a valid integer");
+                }
             }
             return FormValidation.ok();
         }

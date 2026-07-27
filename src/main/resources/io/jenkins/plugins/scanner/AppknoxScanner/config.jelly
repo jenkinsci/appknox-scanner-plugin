@@ -12,6 +12,10 @@
         <f:entry title="${%riskThreshold}" field="riskThreshold">
             <f:select field="riskThreshold" />
         </f:entry>
+        <f:entry title="${%healthScoreThreshold}" field="healthScoreThreshold">
+            <f:textbox field="healthScoreThreshold" />
+            <div style="margin-top: 1px; color: #666; font-size: 0.9em;">${%healthScoreThresholdNote}</div>
+        </f:entry>
         <f:entry title="${%region}" field="region">
             <f:select field="region" />
         </f:entry>
