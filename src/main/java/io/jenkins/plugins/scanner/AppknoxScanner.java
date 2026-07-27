@@ -406,12 +406,11 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
     private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
             throws IOException, InterruptedException, AbortException {
-        // Validate that only one threshold is provided
         boolean hasRiskThreshold = riskThreshold != null && !riskThreshold.trim().isEmpty();
         boolean hasHealthScoreThreshold = healthScoreThreshold != null && !healthScoreThreshold.trim().isEmpty();
         
         if (hasRiskThreshold && hasHealthScoreThreshold) {
-            throw new AbortException("Only one of risk-threshold or health-score-threshold can be provided");
+            listener.getLogger().println("[Appknox] Both Risk Threshold and Health Score Threshold are set. Health Score Threshold takes precedence.");
         }
         
         // Construct the cicheck command
