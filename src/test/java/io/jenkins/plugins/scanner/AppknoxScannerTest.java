@@ -21,7 +21,7 @@ public class AppknoxScannerTest {
         AppknoxScanner.DescriptorImpl descriptor = getDescriptor();
         ListBoxModel items = descriptor.doFillRiskThresholdItems(null);
 
-        assertEquals(4, items.size());
+        assertEquals(5, items.size());
     }
 
     @Test
@@ -74,8 +74,9 @@ public class AppknoxScannerTest {
         AppknoxScanner.DescriptorImpl descriptor = getDescriptor();
         ListBoxModel items = descriptor.doFillRiskThresholdItems(null);
 
-        // No items should be selected when parameter is null
+        // Only the blank "-- Select --" option should be selected when parameter is null
         long selectedCount = items.stream().filter(opt -> opt.selected).count();
-        assertEquals(0, selectedCount);
+        assertEquals(1, selectedCount);
+        assertTrue(items.stream().anyMatch(opt -> opt.selected && "".equals(opt.value)));
     }
 }
