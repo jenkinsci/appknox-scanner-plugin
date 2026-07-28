@@ -454,9 +454,8 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
         String line;
         while ((line = reader.readLine()) != null) {
-            // Start capturing output from lines containing "Found" or "No"
             if (!foundStarted) {
-                if (line.contains("Found") || line.contains("No")) {
+                if (line.contains("Found") || line.contains("No") || line.contains("Health") || line.contains("health") || line.contains("score") || line.contains("Score")) {
                     outputBuilder.append(line).append("\n");
                     if (run != null) {
                         run.setDescription(outputBuilder.toString() + " Check Console Output for more details.");
@@ -469,13 +468,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             }
         }
 
-        // If no relevant lines were found, log and return false
         if (!foundStarted) {
-            listener.getLogger().println("No line with 'Found' or 'No' encountered in the output.");
-            return false;
+            listener.getLogger().println("No relevant output line encountered in the CI check output.");
         }
 
-        // Print the captured output
         String finalOutput = outputBuilder.toString().trim();
         listener.getLogger().println(finalOutput);
 
