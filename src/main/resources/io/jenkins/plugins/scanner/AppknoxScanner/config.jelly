@@ -9,12 +9,40 @@
         <f:entry title="${%filePath}" field="filePath">
             <f:textbox field = "filePath"/>
         </f:entry>
+        <f:entry title="${%thresholdType}" field="thresholdType">
+            <f:select field="thresholdType" onchange="appknoxToggleThreshold(this)" />
+        </f:entry>
+        <div id="appknox-risk-row">
         <f:entry title="${%riskThreshold}" field="riskThreshold">
             <f:select field="riskThreshold" />
         </f:entry>
+        </div>
+        <div id="appknox-health-row" style="display:none">
         <f:entry title="${%healthScoreThreshold}" field="healthScoreThreshold">
             <f:textbox field="healthScoreThreshold" />
         </f:entry>
+        </div>
+        <script><![CDATA[
+            function appknoxToggleThreshold(sel) {
+                var val = sel.value;
+                var riskRow = document.getElementById('appknox-risk-row');
+                var healthRow = document.getElementById('appknox-health-row');
+                if (riskRow) riskRow.style.display = (val === 'RISK') ? '' : 'none';
+                if (healthRow) healthRow.style.display = (val === 'HEALTH_SCORE') ? '' : 'none';
+            }
+            setTimeout(function() {
+                var selects = document.querySelectorAll('select[name="thresholdType"]');
+                var sel = selects.length > 0 ? selects[selects.length - 1] : null;
+                if (sel) {
+                    appknoxToggleThreshold(sel);
+                } else {
+                    var riskRow = document.getElementById('appknox-risk-row');
+                    var healthRow = document.getElementById('appknox-health-row');
+                    if (riskRow) riskRow.style.display = '';
+                    if (healthRow) healthRow.style.display = 'none';
+                }
+            }, 100);
+        ]]></script>
         <f:entry title="${%region}" field="region">
             <f:select field="region" />
         </f:entry>

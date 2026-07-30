@@ -57,15 +57,17 @@ import java.util.Map;
 public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String credentialsId;
     private final String filePath;
+    private final String thresholdType;
     private final String riskThreshold;
     private final String healthScoreThreshold;
     private final String region;
     private boolean generatePdfReport;
 
     @DataBoundConstructor
-    public AppknoxScanner(String credentialsId, String filePath, String riskThreshold, String healthScoreThreshold, String region) {
+    public AppknoxScanner(String credentialsId, String filePath, String thresholdType, String riskThreshold, String healthScoreThreshold, String region) {
         this.credentialsId = credentialsId;
         this.filePath = filePath;
+        this.thresholdType = thresholdType;
         this.riskThreshold = riskThreshold;
         this.healthScoreThreshold = healthScoreThreshold;
         this.region = region;
@@ -77,6 +79,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
     public String getFilePath() {
         return filePath;
+    }
+
+    public String getThresholdType() {
+        return thresholdType;
     }
 
     public String getRiskThreshold() {
@@ -406,26 +412,26 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
     private boolean runCICheck(String appknoxPath, Run<?, ?> run, String fileID, TaskListener listener, EnvVars env, Launcher launcher, FilePath workspace)
             throws IOException, InterruptedException, AbortException {
-        boolean hasRiskThreshold = riskThreshold != null && !riskThreshold.trim().isEmpty();
-        boolean hasHealthScoreThreshold = healthScoreThreshold != null && !healthScoreThreshold.trim().isEmpty();
-        
-        if (hasRiskThreshold && hasHealthScoreThreshold) {
-            throw new AbortException("Only one of risk-threshold or health-score-threshold can be provided");
+        if (thresholdType == null || thresholdType.trim().isEmpty()) {
+            throw new AbortException("Threshold Type must be selected");
         }
-        if (!hasRiskThreshold && !hasHealthScoreThreshold) {
-            throw new AbortException("One of risk-threshold or health-score-threshold must be provided");
-        }
-        
+
         // Construct the cicheck command
         List<String> command = new ArrayList<>();
         command.add(appknoxPath);
         command.add("cicheck");
         command.add(fileID);
-        
-        if (hasHealthScoreThreshold) {
+
+        if ("HEALTH_SCORE".equals(thresholdType)) {
+            if (healthScoreThreshold == null || healthScoreThreshold.trim().isEmpty()) {
+                throw new AbortException("Health Score Threshold value must be provided");
+            }
             command.add("--health-score-threshold");
             command.add(healthScoreThreshold);
         } else {
+            if (riskThreshold == null || riskThreshold.trim().isEmpty()) {
+                throw new AbortException("Risk Threshold value must be provided");
+            }
             command.add("--risk-threshold");
             command.add(riskThreshold);
         }
@@ -667,10 +673,25 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
 
         @POST
+        public ListBoxModel doFillThresholdTypeItems(@QueryParameter String thresholdType) {
+            ListBoxModel items = new ListBoxModel();
+            boolean defaultRisk = thresholdType == null || thresholdType.isEmpty();
+            items.add(new ListBoxModel.Option("Risk Threshold", "RISK", defaultRisk || "RISK".equals(thresholdType)));
+            items.add(new ListBoxModel.Option("Health Score Threshold", "HEALTH_SCORE", "HEALTH_SCORE".equals(thresholdType)));
+            return items;
+        }
+
+        @POST
+        public FormValidation doCheckThresholdType(@QueryParameter String value) {
+            Jenkins.get().checkPermission(Item.CONFIGURE);
+            return FormValidation.ok();
+        }
+
+        @POST
         public ListBoxModel doFillRiskThresholdItems(@QueryParameter String riskThreshold) {
             ListBoxModel items = new ListBoxModel();
-            items.add(new ListBoxModel.Option("-- Select --", "", "".equals(riskThreshold) || riskThreshold == null));
-            items.add(new ListBoxModel.Option("LOW", "LOW", "LOW".equals(riskThreshold)));
+            boolean defaultLow = riskThreshold == null || riskThreshold.isEmpty();
+            items.add(new ListBoxModel.Option("LOW", "LOW", defaultLow || "LOW".equals(riskThreshold)));
             items.add(new ListBoxModel.Option("MEDIUM", "MEDIUM", "MEDIUM".equals(riskThreshold)));
             items.add(new ListBoxModel.Option("HIGH", "HIGH", "HIGH".equals(riskThreshold)));
             items.add(new ListBoxModel.Option("CRITICAL", "CRITICAL", "CRITICAL".equals(riskThreshold)));
@@ -715,31 +736,26 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
 
         @POST
-        public FormValidation doCheckRiskThreshold(@QueryParameter String value, @QueryParameter String healthScoreThreshold) {
+        public FormValidation doCheckRiskThreshold(@QueryParameter String value, @QueryParameter String thresholdType) {
             Jenkins.get().checkPermission(Item.CONFIGURE);
-            boolean hasRisk = value != null && !value.trim().isEmpty();
-            boolean hasHealth = healthScoreThreshold != null && !healthScoreThreshold.trim().isEmpty();
-            if (hasRisk && hasHealth) {
-                return FormValidation.error("Only one of Risk Threshold or Health Score Threshold can be provided.");
-            }
-            if (!hasRisk && !hasHealth) {
-                return FormValidation.error("One of Risk Threshold or Health Score Threshold must be provided.");
-            }
-            if (hasRisk && !value.equals("LOW") && !value.equals("MEDIUM") && !value.equals("HIGH") && !value.equals("CRITICAL")) {
-                return FormValidation.error("Risk Threshold must be one of: LOW, MEDIUM, HIGH, CRITICAL");
+            if ("RISK".equals(thresholdType)) {
+                if (value == null || value.trim().isEmpty()) {
+                    return FormValidation.error("Risk Threshold must be selected");
+                }
+                if (!value.equals("LOW") && !value.equals("MEDIUM") && !value.equals("HIGH") && !value.equals("CRITICAL")) {
+                    return FormValidation.error("Risk Threshold must be one of: LOW, MEDIUM, HIGH, CRITICAL");
+                }
             }
             return FormValidation.ok();
         }
 
         @POST
-        public FormValidation doCheckHealthScoreThreshold(@QueryParameter String value, @QueryParameter String riskThreshold) {
+        public FormValidation doCheckHealthScoreThreshold(@QueryParameter String value, @QueryParameter String thresholdType) {
             Jenkins.get().checkPermission(Item.CONFIGURE);
-            boolean hasHealth = value != null && !value.trim().isEmpty();
-            boolean hasRisk = riskThreshold != null && !riskThreshold.trim().isEmpty();
-            if (hasHealth && hasRisk) {
-                return FormValidation.error("Only one of Risk Threshold or Health Score Threshold can be provided.");
-            }
-            if (hasHealth) {
+            if ("HEALTH_SCORE".equals(thresholdType)) {
+                if (value == null || value.trim().isEmpty()) {
+                    return FormValidation.error("Health Score Threshold must be provided");
+                }
                 try {
                     int threshold = Integer.parseInt(value.trim());
                     if (threshold < 0 || threshold > 100) {
