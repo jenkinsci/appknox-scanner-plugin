@@ -7,7 +7,8 @@ package io.jenkins.plugins.scanner;
 public enum Region {
     GLOBAL("global", "Global", "https://secure.appknox.com/"),
     UAE("uae", "UAE", "https://secure.uae.appknox.com/"),
-    SAUDI("saudi", "Saudi", "https://sa.secure.appknox.com/");
+    SAUDI("saudi", "Saudi", "https://sa.secure.appknox.com/"),
+    EU("eu", "EU", "https://eu.secure.appknox.com/");
 
     private final String value;
     private final String displayName;
