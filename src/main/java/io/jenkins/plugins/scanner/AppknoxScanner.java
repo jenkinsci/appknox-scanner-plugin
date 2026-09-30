@@ -175,25 +175,30 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             // Run CICheck and capture the result
             boolean ciCheckSuccess = runCICheck(appknoxPath, run, fileID, listener, env, launcher, workspace);
 
-            // Always generate and download reports regardless of cicheck result
+            // Always attempt to generate and download reports regardless of cicheck
+            // result -- but a report-creation failure (network blip, API outage)
+            // must not skip the vulnerability gate below. Only the report/CSV/PDF
+            // steps are conditional on reportID; the cicheck-based build result
+            // always gets decided.
             String reportID = createReport(appknoxPath, fileID, listener, env, launcher, workspace);
-            if (reportID == null) {
-                return false;
+            if (reportID != null) {
+                String csvRelativePath = "reports/" + fileID + "/" + reportName;
+                downloadReportSummaryCSV(appknoxPath, csvRelativePath, reportID, run, workspace, listener, env, launcher);
+                archiveArtifact(run, workspace, csvRelativePath, launcher, listener);
+
+                if (generatePdfReport) {
+                    downloadReportPDF(appknoxPath, reportID, fileID, run, workspace, listener, env, launcher);
+                    String pdfRelativePath = "reports/" + fileID + "/report_" + fileID + ".pdf";
+                    String passwordRelativePath = "reports/" + fileID + "/report_" + fileID + "_password.txt";
+                    archiveArtifact(run, workspace, pdfRelativePath, launcher, listener);
+                    archiveArtifact(run, workspace, passwordRelativePath, launcher, listener);
+                }
+            } else {
+                listener.getLogger().println("Skipping report/PDF download because report creation failed. Not retrying.");
             }
 
-            String csvRelativePath = "reports/" + fileID + "/" + reportName;
-            downloadReportSummaryCSV(appknoxPath, csvRelativePath, reportID, run, workspace, listener, env, launcher);
-            archiveArtifact(run, workspace, csvRelativePath, launcher, listener);
-
-            if (generatePdfReport) {
-                downloadReportPDF(appknoxPath, reportID, fileID, run, workspace, listener, env, launcher);
-                String pdfRelativePath = "reports/" + fileID + "/report_" + fileID + ".pdf";
-                String passwordRelativePath = "reports/" + fileID + "/report_" + fileID + "_password.txt";
-                archiveArtifact(run, workspace, pdfRelativePath, launcher, listener);
-                archiveArtifact(run, workspace, passwordRelativePath, launcher, listener);
-            }
-
-            // Abort after reports are downloaded if vulnerabilities were found
+            // Abort after reports are downloaded if vulnerabilities were found --
+            // always evaluated, even when report creation above failed.
             if (!ciCheckSuccess) {
                 throw new AbortException("Vulnerabilities detected. Failing the build.");
             }
@@ -652,12 +657,21 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     }
 
     private String extractReportID(String createReportOutput, TaskListener listener) {
-        if (createReportOutput != null && !createReportOutput.isEmpty()) {
-            return createReportOutput.trim();
-        } else {
+        if (createReportOutput == null || createReportOutput.isEmpty()) {
             listener.getLogger().println("Report output does not contain any lines.");
             return null;
         }
+        String trimmed = createReportOutput.trim();
+        if (!trimmed.matches("\\d+")) {
+            // Not a valid numeric report ID -- e.g. an error message that ended
+            // up on stdout/stderr (a CLI crash, a network error printed before
+            // exiting). Treating it as an ID would pass it straight through to
+            // the download step. The exit-code check in createReport() already
+            // catches most of these; this is a second, independent guard.
+            listener.getLogger().println("Report output is not a valid report ID: " + trimmed);
+            return null;
+        }
+        return trimmed;
     }
 
     @Extension
