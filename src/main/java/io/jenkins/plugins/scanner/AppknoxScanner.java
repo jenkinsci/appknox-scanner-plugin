@@ -62,6 +62,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String healthScoreThreshold;
     private final String region;
     private boolean generatePdfReport;
+    private boolean triggerKnoxiq;
 
     @DataBoundConstructor
     public AppknoxScanner(String credentialsId, String filePath, String thresholdType, String riskThreshold, String healthScoreThreshold, String region) {
@@ -104,6 +105,15 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     @DataBoundSetter
     public void setGeneratePdfReport(boolean generatePdfReport) {
         this.generatePdfReport = generatePdfReport;
+    }
+
+    public boolean isTriggerKnoxiq() {
+        return triggerKnoxiq;
+    }
+
+    @DataBoundSetter
+    public void setTriggerKnoxiq(boolean triggerKnoxiq) {
+        this.triggerKnoxiq = triggerKnoxiq;
     }
 
     @Override
@@ -379,6 +389,11 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add(appFilePath);
         command.add("--region");
         command.add(region);
+
+        if (triggerKnoxiq) {
+            command.add("--knoxiq");
+            listener.getLogger().println("KnoxIQ triage requested for this upload.");
+        }
 
         ArgumentListBuilder args = new ArgumentListBuilder(command.toArray(new String[0]));
 
