@@ -1,6 +1,6 @@
 # Appknox Security Scan Plugin
 
-The Appknox Security Scan Plugin allows you to perform Appknox security scan on your mobile application binary. The APK/IPA built from your CI pipeline will be uploaded to Appknox platform which performs static scan and the build will be errored according to the chosen risk threshold.
+The Appknox Security Scan Plugin allows you to perform Appknox security scan on your mobile application binary. The APK/IPA built from your CI pipeline will be uploaded to Appknox platform which performs static scan and the build will be errored according to the chosen risk threshold or minimum health score.
 
 ## How to use it?
 
@@ -81,7 +81,9 @@ stages {
                 appKnoxScanner(
                     credentialsId: 'your-appknox-access-token-ID', // Specify the Appknox Access Token ID that was set when storing the token in Jenkins credentials.
                     filePath: FILE_PATH,
-                    riskThreshold: params.RISK_THRESHOLD,
+                    thresholdType: 'RISK', // 'RISK' or 'HEALTH_SCORE' -- pick exactly one, with the matching threshold field below
+                    riskThreshold: params.RISK_THRESHOLD, // required when thresholdType is 'RISK'
+                    // healthScoreThreshold: params.HEALTH_SCORE_THRESHOLD, // required when thresholdType is 'HEALTH_SCORE' instead
                     region: params.REGION,
                     generatePdfReport: params.GENERATE_PDF, // set to true to download a password-protected PDF report
                     triggerKnoxiq: params.TRIGGER_KNOXIQ // set to true to request KnoxIQ triage during upload
@@ -98,7 +100,9 @@ stages {
 |---------------------|------------------------------|
 | `credentialsId`     | Personal appknox access token ID |
 | `filePath`          | Specify the build file name or path for the mobile application binary to upload, E.g. app-debug.apk, app/build/apk/app-debug.apk |
-| `riskThreshold`     | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
+| `thresholdType`     | Which threshold to enforce — pick exactly one. <br><br>Accepted values: `RISK`, `HEALTH_SCORE` |
+| `riskThreshold`     | Risk threshold value for which the CI should fail. Required when `thresholdType` is `RISK`. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
+| `healthScoreThreshold` | Minimum health score (0-100) the scanned app must meet for the CI to pass. Required when `thresholdType` is `HEALTH_SCORE`. |
 | `region`            | Specify the Appknox region. <br><br>Accepted values: `global`, `uae`, `saudi` <br><br>Default: `global` |
 | `generatePdfReport` | (Optional) Download a PDF VAPT report after the scan. The report is password-protected. <br><br>Accepted values: `true`, `false` <br><br>Default: `false` |
 | `triggerKnoxiq`     | (Optional) Request KnoxIQ triage for this build during upload; results are reflected by the CI check. <br><br>Accepted values: `true`, `false` <br><br>Default: `false` |
@@ -106,6 +110,8 @@ stages {
 ---
 
 ## Example Script:
+
+### Example — Risk Threshold
 ```groovy
 pipeline {
     agent any
@@ -136,7 +142,52 @@ pipeline {
                     appKnoxScanner(
                         credentialsId: 'your-appknox-access-token-ID', // Specify the Appknox Access Token ID that was set when storing the token in Jenkins credentials.
                         filePath: FILE_PATH,
+                        thresholdType: 'RISK',
                         riskThreshold: params.RISK_THRESHOLD,
+                        region: params.REGION,
+                        generatePdfReport: params.GENERATE_PDF, // set to true to download a password-protected PDF report
+                        triggerKnoxiq: params.TRIGGER_KNOXIQ // set to true to request KnoxIQ triage during upload
+                    )
+                }
+            }
+        }
+    }
+}
+```
+
+### Example — Health Score Threshold
+```groovy
+pipeline {
+    agent any
+    parameters {
+        string(name: 'HEALTH_SCORE_THRESHOLD', defaultValue: '70', description: 'Minimum Health Score (0-100)')
+        choice(name: 'REGION', choices: ['global', 'uae', 'saudi'], description: 'Appknox Region')
+        booleanParam(name: 'GENERATE_PDF', defaultValue: false, description: 'Download PDF report')
+        booleanParam(name: 'TRIGGER_KNOXIQ', defaultValue: false, description: 'Request KnoxIQ triage during upload')
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/yourgithub/reponame'
+            }
+        }
+        stage('Build App') {
+            steps {
+                // Build the app using your build tool. Example uses Gradle.
+                script {
+                    sh './gradlew build'
+                    FILE_PATH = "app/build/outputs/apk/debug/app-debug.apk"
+                }
+            }
+        }
+        stage('Appknox Scan') {
+            steps {
+                script {
+                    appKnoxScanner(
+                        credentialsId: 'your-appknox-access-token-ID', // Specify the Appknox Access Token ID that was set when storing the token in Jenkins credentials.
+                        filePath: FILE_PATH,
+                        thresholdType: 'HEALTH_SCORE',
+                        healthScoreThreshold: params.HEALTH_SCORE_THRESHOLD,
                         region: params.REGION,
                         generatePdfReport: params.GENERATE_PDF, // set to true to download a password-protected PDF report
                         triggerKnoxiq: params.TRIGGER_KNOXIQ // set to true to request KnoxIQ triage during upload
