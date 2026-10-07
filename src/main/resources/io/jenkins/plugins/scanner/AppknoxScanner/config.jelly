@@ -50,6 +50,10 @@
             <f:checkbox />
             <div style="margin-top: 1px; color: #666; font-size: 0.9em;">${%generatePdfReportNote}</div>
         </f:entry>
+        <f:entry title="${%triggerKnoxiq}" field="triggerKnoxiq">
+            <f:checkbox />
+            <div style="margin-top: 1px; color: #666; font-size: 0.9em;">${%triggerKnoxiqNote}</div>
+        </f:entry>
         <f:entry>
             <p>${%requiredFields}</p>
         </f:entry>

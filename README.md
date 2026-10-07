@@ -83,7 +83,8 @@ stages {
                     filePath: FILE_PATH,
                     riskThreshold: params.RISK_THRESHOLD,
                     region: params.REGION,
-                    generatePdfReport: params.GENERATE_PDF // set to true to download a password-protected PDF report
+                    generatePdfReport: params.GENERATE_PDF, // set to true to download a password-protected PDF report
+                    triggerKnoxiq: params.TRIGGER_KNOXIQ // set to true to request KnoxIQ triage during upload
                 )
             }
         }
@@ -100,6 +101,7 @@ stages {
 | `riskThreshold`     | Risk threshold value for which the CI should fail. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |
 | `region`            | Specify the Appknox region. <br><br>Accepted values: `global`, `uae`, `saudi` <br><br>Default: `global` |
 | `generatePdfReport` | (Optional) Download a PDF VAPT report after the scan. The report is password-protected. <br><br>Accepted values: `true`, `false` <br><br>Default: `false` |
+| `triggerKnoxiq`     | (Optional) Request KnoxIQ triage for this build during upload; results are reflected by the CI check. <br><br>Accepted values: `true`, `false` <br><br>Default: `false` |
 
 ---
 
@@ -111,6 +113,7 @@ pipeline {
         choice(name: 'RISK_THRESHOLD', choices: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], description: 'Risk Threshold')
         choice(name: 'REGION', choices: ['global', 'uae', 'saudi'], description: 'Appknox Region')
         booleanParam(name: 'GENERATE_PDF', defaultValue: false, description: 'Download PDF report')
+        booleanParam(name: 'TRIGGER_KNOXIQ', defaultValue: false, description: 'Request KnoxIQ triage during upload')
     }
     stages {
         stage('Checkout') {
@@ -135,7 +138,8 @@ pipeline {
                         filePath: FILE_PATH,
                         riskThreshold: params.RISK_THRESHOLD,
                         region: params.REGION,
-                        generatePdfReport: params.GENERATE_PDF // set to true to download a password-protected PDF report
+                        generatePdfReport: params.GENERATE_PDF, // set to true to download a password-protected PDF report
+                        triggerKnoxiq: params.TRIGGER_KNOXIQ // set to true to request KnoxIQ triage during upload
                     )
                 }
             }
