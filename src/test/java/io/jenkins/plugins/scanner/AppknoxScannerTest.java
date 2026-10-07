@@ -140,6 +140,19 @@ public class AppknoxScannerTest {
         assertTrue(scanner.isGeneratePdfReport());
     }
 
+    @Test
+    public void triggerKnoxiq_DefaultFalse() {
+        AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "RISK", "LOW", "", "global");
+        assertFalse(scanner.isTriggerKnoxiq());
+    }
+
+    @Test
+    public void setTriggerKnoxiq_UpdatesValue() {
+        AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "RISK", "LOW", "", "global");
+        scanner.setTriggerKnoxiq(true);
+        assertTrue(scanner.isTriggerKnoxiq());
+    }
+
     // --- Lines 657-688: DescriptorImpl methods ---
 
     @Test
