@@ -22,27 +22,11 @@
             <f:textbox field="healthScoreThreshold" />
         </f:entry>
         </div>
-        <script><![CDATA[
-            function appknoxToggleThreshold(sel) {
-                var val = sel.value;
-                var riskRow = document.getElementById('appknox-risk-row');
-                var healthRow = document.getElementById('appknox-health-row');
-                if (riskRow) riskRow.style.display = (val === 'RISK') ? '' : 'none';
-                if (healthRow) healthRow.style.display = (val === 'HEALTH_SCORE') ? '' : 'none';
-            }
-            setTimeout(function() {
-                var selects = document.querySelectorAll('select[name="thresholdType"]');
-                var sel = selects.length > 0 ? selects[selects.length - 1] : null;
-                if (sel) {
-                    appknoxToggleThreshold(sel);
-                } else {
-                    var riskRow = document.getElementById('appknox-risk-row');
-                    var healthRow = document.getElementById('appknox-health-row');
-                    if (riskRow) riskRow.style.display = '';
-                    if (healthRow) healthRow.style.display = 'none';
-                }
-            }, 100);
-        ]]></script>
+        <div id="appknox-likelihood-row" style="display:none">
+        <f:entry title="${%exploitLikelihoodThreshold}" field="exploitLikelihoodThreshold">
+            <f:select field="exploitLikelihoodThreshold" />
+        </f:entry>
+        </div>
         <f:entry title="${%region}" field="region">
             <f:select field="region" />
         </f:entry>
@@ -51,9 +35,54 @@
             <div style="margin-top: 1px; color: #666; font-size: 0.9em;">${%generatePdfReportNote}</div>
         </f:entry>
         <f:entry title="${%triggerKnoxiq}" field="triggerKnoxiq">
-            <f:checkbox />
-            <div style="margin-top: 1px; color: #666; font-size: 0.9em;">${%triggerKnoxiqNote}</div>
+            <f:checkbox id="appknox-trigger-knoxiq-checkbox" />
+            <div style="margin-top: 1px; color: #666; font-size: 0.9em;" id="appknox-trigger-knoxiq-note">${%triggerKnoxiqNote}</div>
         </f:entry>
+        <script><![CDATA[
+            function appknoxToggleThreshold(sel) {
+                var val = sel.value;
+                var riskRow = document.getElementById('appknox-risk-row');
+                var healthRow = document.getElementById('appknox-health-row');
+                var likelihoodRow = document.getElementById('appknox-likelihood-row');
+                var knoxiqCheckbox = document.getElementById('appknox-trigger-knoxiq-checkbox');
+                var knoxiqNote = document.getElementById('appknox-trigger-knoxiq-note');
+                if (riskRow) riskRow.style.display = (val === 'RISK') ? '' : 'none';
+                if (healthRow) healthRow.style.display = (val === 'HEALTH_SCORE') ? '' : 'none';
+                if (likelihoodRow) likelihoodRow.style.display = (val === 'EXPLOIT_LIKELIHOOD') ? '' : 'none';
+                if (knoxiqCheckbox) {
+                    var forced = (val === 'EXPLOIT_LIKELIHOOD');
+                    knoxiqCheckbox.disabled = forced;
+                    if (forced) {
+                        if (knoxiqCheckbox.dataset.prevChecked === undefined) {
+                            knoxiqCheckbox.dataset.prevChecked = knoxiqCheckbox.checked;
+                        }
+                        knoxiqCheckbox.checked = true;
+                    } else if (knoxiqCheckbox.dataset.prevChecked !== undefined) {
+                        knoxiqCheckbox.checked = (knoxiqCheckbox.dataset.prevChecked === 'true');
+                        delete knoxiqCheckbox.dataset.prevChecked;
+                    }
+                    if (knoxiqNote) {
+                        knoxiqNote.textContent = forced
+                            ? 'Automatically enabled -- required for Exploit Likelihood Threshold.'
+                            : '${%triggerKnoxiqNote}';
+                    }
+                }
+            }
+            setTimeout(function() {
+                var selects = document.querySelectorAll('select[name="_.thresholdType"]');
+                var sel = selects.length > 0 ? selects[selects.length - 1] : null;
+                if (sel) {
+                    appknoxToggleThreshold(sel);
+                } else {
+                    var riskRow = document.getElementById('appknox-risk-row');
+                    var healthRow = document.getElementById('appknox-health-row');
+                    var likelihoodRow = document.getElementById('appknox-likelihood-row');
+                    if (riskRow) riskRow.style.display = '';
+                    if (healthRow) healthRow.style.display = 'none';
+                    if (likelihoodRow) likelihoodRow.style.display = 'none';
+                }
+            }, 100);
+        ]]></script>
         <f:entry>
             <p>${%requiredFields}</p>
         </f:entry>

@@ -63,6 +63,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private final String region;
     private boolean generatePdfReport;
     private boolean triggerKnoxiq;
+    private String exploitLikelihoodThreshold;
 
     @DataBoundConstructor
     public AppknoxScanner(String credentialsId, String filePath, String thresholdType, String riskThreshold, String healthScoreThreshold, String region) {
@@ -114,6 +115,15 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     @DataBoundSetter
     public void setTriggerKnoxiq(boolean triggerKnoxiq) {
         this.triggerKnoxiq = triggerKnoxiq;
+    }
+
+    public String getExploitLikelihoodThreshold() {
+        return exploitLikelihoodThreshold;
+    }
+
+    @DataBoundSetter
+    public void setExploitLikelihoodThreshold(String exploitLikelihoodThreshold) {
+        this.exploitLikelihoodThreshold = exploitLikelihoodThreshold;
     }
 
     @Override
@@ -197,10 +207,14 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
                 listener.getLogger().println("Skipping report/PDF download because report creation failed. Not retrying.");
             }
 
-            // Abort after reports are downloaded if vulnerabilities were found --
-            // always evaluated, even when report creation above failed.
+            // Abort after reports are downloaded if the configured gate was breached --
+            // always evaluated, even when report creation above failed. The message is
+            // gate-neutral because the specific reason (risk count, health score, or
+            // exploit-likelihood count) was already printed to the console by cicheck
+            // and captured into the build description just above -- "Vulnerabilities
+            // detected" would be actively wrong for a health-score failure.
             if (!ciCheckSuccess) {
-                throw new AbortException("Vulnerabilities detected. Failing the build.");
+                throw new AbortException("Appknox CI check failed. See the console output above for details.");
             }
         } catch (AbortException e) {
             // Re-throw AbortException to stop the pipeline
@@ -395,7 +409,12 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         command.add("--region");
         command.add(region);
 
-        if (triggerKnoxiq) {
+        // Exploit-likelihood gating only works against KnoxIQ-triaged results, so
+        // it forces --knoxiq regardless of the triggerKnoxiq checkbox's stored
+        // value -- the UI also disables/pre-checks that box for this mode, but
+        // this is the actual guarantee.
+        boolean knoxiqRequired = triggerKnoxiq || "EXPLOIT_LIKELIHOOD".equals(thresholdType);
+        if (knoxiqRequired) {
             command.add("--knoxiq");
             listener.getLogger().println("KnoxIQ triage requested for this upload.");
         }
@@ -448,6 +467,12 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             }
             command.add("--health-score-threshold");
             command.add(healthScoreThreshold);
+        } else if ("EXPLOIT_LIKELIHOOD".equals(thresholdType)) {
+            if (exploitLikelihoodThreshold == null || exploitLikelihoodThreshold.trim().isEmpty()) {
+                throw new AbortException("Exploit Likelihood Threshold value must be provided");
+            }
+            command.add("--exploit-likelihood-threshold");
+            command.add(exploitLikelihoodThreshold);
         } else {
             if (riskThreshold == null || riskThreshold.trim().isEmpty()) {
                 throw new AbortException("Risk Threshold value must be provided");
@@ -707,6 +732,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             boolean defaultRisk = thresholdType == null || thresholdType.isEmpty();
             items.add(new ListBoxModel.Option("Risk Threshold", "RISK", defaultRisk || "RISK".equals(thresholdType)));
             items.add(new ListBoxModel.Option("Health Score Threshold", "HEALTH_SCORE", "HEALTH_SCORE".equals(thresholdType)));
+            items.add(new ListBoxModel.Option("Exploit Likelihood Threshold", "EXPLOIT_LIKELIHOOD", "EXPLOIT_LIKELIHOOD".equals(thresholdType)));
             return items;
         }
 
@@ -724,6 +750,16 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             items.add(new ListBoxModel.Option("MEDIUM", "MEDIUM", "MEDIUM".equals(riskThreshold)));
             items.add(new ListBoxModel.Option("HIGH", "HIGH", "HIGH".equals(riskThreshold)));
             items.add(new ListBoxModel.Option("CRITICAL", "CRITICAL", "CRITICAL".equals(riskThreshold)));
+            return items;
+        }
+
+        @POST
+        public ListBoxModel doFillExploitLikelihoodThresholdItems(@QueryParameter String exploitLikelihoodThreshold) {
+            ListBoxModel items = new ListBoxModel();
+            boolean defaultLow = exploitLikelihoodThreshold == null || exploitLikelihoodThreshold.isEmpty();
+            items.add(new ListBoxModel.Option("LOW", "LOW", defaultLow || "LOW".equals(exploitLikelihoodThreshold)));
+            items.add(new ListBoxModel.Option("MEDIUM", "MEDIUM", "MEDIUM".equals(exploitLikelihoodThreshold)));
+            items.add(new ListBoxModel.Option("HIGH", "HIGH", "HIGH".equals(exploitLikelihoodThreshold)));
             return items;
         }
 
@@ -792,6 +828,20 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
                     }
                 } catch (NumberFormatException e) {
                     return FormValidation.error("Health Score Threshold must be a valid integer");
+                }
+            }
+            return FormValidation.ok();
+        }
+
+        @POST
+        public FormValidation doCheckExploitLikelihoodThreshold(@QueryParameter String value, @QueryParameter String thresholdType) {
+            Jenkins.get().checkPermission(Item.CONFIGURE);
+            if ("EXPLOIT_LIKELIHOOD".equals(thresholdType)) {
+                if (value == null || value.trim().isEmpty()) {
+                    return FormValidation.error("Exploit Likelihood Threshold must be selected");
+                }
+                if (!value.equals("LOW") && !value.equals("MEDIUM") && !value.equals("HIGH")) {
+                    return FormValidation.error("Exploit Likelihood Threshold must be one of: LOW, MEDIUM, HIGH");
                 }
             }
             return FormValidation.ok();
