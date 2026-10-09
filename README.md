@@ -244,4 +244,4 @@ pipeline {
 }
 ```
 
-**Note:** `exploitLikelihoodThreshold` gates on KnoxIQ's real-world exploitability assessment instead of raw CVSS risk. It requires KnoxIQ triage to complete for the uploaded file, so `--knoxiq` is always passed on upload when this threshold type is selected -- the `triggerKnoxiq` input is ignored (and disabled in the classic UI) in this mode. If KnoxIQ triage cannot complete in time, the CLI falls back to a plain risk check instead; see the console output for which gate actually ran.
+**Note:** `exploitLikelihoodThreshold` gates on KnoxIQ's real-world exploitability assessment instead of raw CVSS risk. It requires KnoxIQ triage to complete for the uploaded file, so `--knoxiq` is always passed on upload when this threshold type is selected -- the `triggerKnoxiq` input is ignored (and disabled in the classic UI) in this mode. If KnoxIQ triage is unavailable or does not complete in time, the CLI falls back to a risk check at `LOW` -- any Low-or-higher finding fails the build, regardless of which Exploit Likelihood level was configured. See the console output for which gate actually ran.

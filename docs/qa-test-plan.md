@@ -2,19 +2,21 @@
 
 A practical checklist for testing config-form and build-logic changes to
 `AppknoxScanner` before release. Written after manually regression-testing the
-Exploit Likelihood Threshold addition (2026-10-09), which surfaced a real bug
-this plan is specifically designed to catch next time.
+Exploit Likelihood Threshold addition, which surfaced a real bug this plan is
+specifically designed to catch next time.
 
 ## 1. Spin up a local test Jenkins
 
+From the plugin repo root:
+
 ```bash
-cd ~/Documents/projects/appknox-jenkins-plugin
 mvn -o package -DskipTests        # build the current .hpi
 mvn -o hpi:run -Dport=8090        # NOT -Djetty.port -- that property is ignored by this plugin version
 ```
 
-Browse to `http://localhost:8090/jenkins/`. Runs in `DEVELOPMENT` install
-state — no setup wizard, but **CSRF crumb protection is still ON**, so:
+Browse to the printed URL (e.g. `http://localhost:8090/jenkins/`). Runs in
+`DEVELOPMENT` install state — no setup wizard, but **CSRF crumb protection is
+still ON**, so:
 - UI form submissions work fine through a real browser click.
 - Scripted/API calls (`curl`, `fetch`) need a crumb fetched with a shared
   cookie jar first, or they 403 with "No valid crumb was included":
@@ -31,17 +33,20 @@ Java classes need a real reload. After a **resource-only** change (`.jelly`,
 `target/classes`) and reload the browser page — no restart needed, hpi:run
 serves resources live.
 
-## 2. Known test repo with a real findings catalog
+## 2. Test fixture requirements
 
-`https://github.com/ginilpg/mfva` (branch `master`) ships a prebuilt
-`app/app-debug.apk` — no build step needed, just Git SCM pointed at it.
-Known findings as of 2026-10-09 (re-verify if the repo changes): mostly
-Medium/High risk, nothing Critical. One finding
-(`External data in raw SQL queries`, vuln ID 93) reliably comes back from
-KnoxIQ as **needs review** — useful for verifying the exclusion logic without
-depending on exact scan output. `StrandHogg Vulnerability` (ID 118) reliably
-comes back Medium risk / High exploit likelihood — useful for verifying risk
-and likelihood are checked independently.
+Use a job pointed at any binary your Appknox account can scan — a prebuilt
+APK/IPA committed to a repo avoids needing a build step. For full coverage
+you need a file where:
+- At least one finding reliably comes back from KnoxIQ as **needs review**,
+  to verify the exclusion logic without guessing at exact scan output.
+- At least one finding has a known, stable exploit-likelihood level, to
+  verify risk and likelihood are checked independently of each other.
+
+Real scan results drift as detection rules evolve, so don't hardcode exact
+finding names/IDs into this plan — re-derive them from whatever fixture your
+team maintains, and note them in your own private test notes rather than
+here.
 
 ## 3. The bug this plan exists to catch: config-form state on page LOAD, not just on change
 
@@ -59,9 +64,10 @@ fallback branch always ran.
 JS must be tested two ways, not one:
 1. Change the controlling dropdown live and observe the reaction (what we did
    first, and what passed).
-2. **Save, then reload the page from scratch** (`navigate`, not just inspect
-   current DOM) and confirm the *same* correct state appears with zero
-   interaction. This is the one that actually catches the bug class above.
+2. **Save, then reload the page from scratch** (navigate to it fresh, not
+   just inspect current DOM) and confirm the *same* correct state appears
+   with zero interaction. This is the one that actually catches the bug
+   class above.
 
 Check this specifically with real JS inspection, not just a screenshot:
 ```js
@@ -70,26 +76,26 @@ document.querySelector('select[name="_.thresholdType"]').value  // not 'threshol
 
 ## 4. Threshold Type regression matrix
 
-Run each of these as a real build against the test repo above. For each:
-confirm the **Active gates** line matches what was configured, confirm the
-specific pass/fail reason text makes sense for that gate type, and confirm
-the final build result (SUCCESS/FAILURE) is correct.
+Run each of these as a real build. For each: confirm the **Active gates**
+line matches what was configured, confirm the specific pass/fail reason text
+makes sense for that gate type, and confirm the final build result
+(SUCCESS/FAILURE) is correct for your fixture's actual findings.
 
-| Threshold Type | Value to use | Expected against mfva | What to check |
-|---|---|---|---|
-| Risk | `CRITICAL` | **SUCCESS** (no Critical findings) | `Active gates: risk >= Critical`, "No vulnerabilities found breaching..." |
-| Risk | `LOW` | **FAILURE** (plenty of Low+ findings) | Correct count in "Found N vulnerabilities with risk >= Low" |
-| Health Score | `70` | **FAILURE** (mfva's score is well below 70) | "Health score N is below the threshold 70." — NOT a generic/wrong message |
-| Exploit Likelihood | `HIGH` | **FAILURE** (StrandHogg is High likelihood) | `Active gates: exploit likelihood >= High`, count = 1 |
-| Exploit Likelihood | `MEDIUM` | **FAILURE**, different count | Confirms threshold value actually changes the result, not just the label |
+| Threshold Type | Value to use | What to check |
+|---|---|---|
+| Risk | A level with no matching findings | `Active gates: risk >= <level>`, build **SUCCESS**, "No vulnerabilities found breaching..." |
+| Risk | A level with matching findings | Correct count in "Found N vulnerabilities with risk >= <level>", build **FAILURE** |
+| Health Score | A threshold above the fixture's real score | "Health score N is below the threshold X." — NOT a generic/wrong message, build **FAILURE** |
+| Exploit Likelihood | A level with no matching findings | `Active gates: exploit likelihood >= <level>`, build **SUCCESS** |
+| Exploit Likelihood | A level with matching findings | Correct count, build **FAILURE** — also re-test at a different level to confirm the threshold value itself changes the result, not just the label |
 
 For every row, also confirm:
 - **KnoxIQ triage status: Started / In progress / Completed** appears in the
   console (triage actually ran) whenever `triggerKnoxiq` is true OR
   Threshold Type is Exploit Likelihood (which must force it regardless of the
   checkbox's stored value).
-- The needs-review table appears and excludes vuln ID 93 (SQL queries) from
-  the count, regardless of which gate is active.
+- The needs-review table appears and correctly excludes the expected
+  finding(s) from the count, regardless of which gate is active.
 - CSV and PDF+password files are archived as build artifacts.
 - The final `ERROR: ...` message (on failure) is accurate for that gate type
   — don't let a generic "Vulnerabilities detected" message survive for a
@@ -103,8 +109,10 @@ With a Freestyle job's build step config open:
 - [ ] Selecting it **checks and visibly disables** "Trigger KnoxIQ", and the
       help text below it changes to explain why.
 - [ ] Switching back to Risk or Health Score **re-enables** the checkbox
-      (don't leave it permanently stuck disabled) and restores the original
-      help text.
+      and **restores its original checked/unchecked state** from before it
+      was forced on -- not just "re-enabled but left checked". Verify this
+      specifically: uncheck "Trigger KnoxIQ" first, switch to Exploit
+      Likelihood, switch back, confirm it's unchecked again.
 - [ ] **Reload the page** (not just inspect current state) after saving each
       of the three Threshold Type values — confirm the correct row/state
       appears immediately, per section 3 above.
@@ -116,8 +124,7 @@ With a Freestyle job's build step config open:
 
 ## 6. Before merging / releasing
 
-- [ ] `mvn -o test` — all tests pass (currently 63; update this number as
-      tests are added).
-- [ ] All 5 rows of the regression matrix (section 4) run as real builds
+- [ ] `mvn -o test` — all tests pass.
+- [ ] All rows of the regression matrix (section 4) run as real builds
       against a real Appknox backend, not just unit-tested.
 - [ ] README.md's Inputs table and examples match whatever actually changed.

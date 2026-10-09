@@ -52,7 +52,15 @@
                 if (knoxiqCheckbox) {
                     var forced = (val === 'EXPLOIT_LIKELIHOOD');
                     knoxiqCheckbox.disabled = forced;
-                    if (forced) knoxiqCheckbox.checked = true;
+                    if (forced) {
+                        if (knoxiqCheckbox.dataset.prevChecked === undefined) {
+                            knoxiqCheckbox.dataset.prevChecked = knoxiqCheckbox.checked;
+                        }
+                        knoxiqCheckbox.checked = true;
+                    } else if (knoxiqCheckbox.dataset.prevChecked !== undefined) {
+                        knoxiqCheckbox.checked = (knoxiqCheckbox.dataset.prevChecked === 'true');
+                        delete knoxiqCheckbox.dataset.prevChecked;
+                    }
                     if (knoxiqNote) {
                         knoxiqNote.textContent = forced
                             ? 'Automatically enabled -- required for Exploit Likelihood Threshold.'
