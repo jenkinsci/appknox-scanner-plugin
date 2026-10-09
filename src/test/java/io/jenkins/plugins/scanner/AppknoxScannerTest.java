@@ -153,6 +153,19 @@ public class AppknoxScannerTest {
         assertTrue(scanner.isTriggerKnoxiq());
     }
 
+    @Test
+    public void exploitLikelihoodThreshold_DefaultNull() {
+        AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "RISK", "LOW", "", "global");
+        assertNull(scanner.getExploitLikelihoodThreshold());
+    }
+
+    @Test
+    public void setExploitLikelihoodThreshold_UpdatesValue() {
+        AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "EXPLOIT_LIKELIHOOD", "LOW", "", "global");
+        scanner.setExploitLikelihoodThreshold("HIGH");
+        assertEquals("HIGH", scanner.getExploitLikelihoodThreshold());
+    }
+
     // --- Lines 657-688: DescriptorImpl methods ---
 
     @Test
@@ -181,9 +194,20 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillThresholdTypeItems_ReturnsTwoOptions() {
+    public void doFillThresholdTypeItems_ReturnsThreeOptions() {
         ListBoxModel items = getDescriptor().doFillThresholdTypeItems(null);
-        assertEquals(2, items.size());
+        assertEquals(3, items.size());
+    }
+
+    @Test
+    public void doFillThresholdTypeItems_ExploitLikelihoodSelected() {
+        ListBoxModel items = getDescriptor().doFillThresholdTypeItems("EXPLOIT_LIKELIHOOD");
+        assertTrue(items.stream()
+            .filter(opt -> "EXPLOIT_LIKELIHOOD".equals(opt.value))
+            .findFirst().map(opt -> opt.selected).orElse(false));
+        assertFalse(items.stream()
+            .filter(opt -> "RISK".equals(opt.value))
+            .findFirst().map(opt -> opt.selected).orElse(true));
     }
 
     @Test
@@ -322,5 +346,66 @@ public class AppknoxScannerTest {
         assertEquals(FormValidation.Kind.OK, d.doCheckHealthScoreThreshold("0", "HEALTH_SCORE").kind);
         assertEquals(FormValidation.Kind.OK, d.doCheckHealthScoreThreshold("50", "HEALTH_SCORE").kind);
         assertEquals(FormValidation.Kind.OK, d.doCheckHealthScoreThreshold("100", "HEALTH_SCORE").kind);
+    }
+
+    // --- doFillExploitLikelihoodThresholdItems ---
+
+    @Test
+    public void doFillExploitLikelihoodThresholdItems_ReturnsThreeOptions() {
+        ListBoxModel items = getDescriptor().doFillExploitLikelihoodThresholdItems(null);
+        assertEquals(3, items.size());
+    }
+
+    @Test
+    public void doFillExploitLikelihoodThresholdItems_NullParameterDefaultsToLow() {
+        ListBoxModel items = getDescriptor().doFillExploitLikelihoodThresholdItems(null);
+        assertTrue(items.stream()
+            .filter(opt -> "LOW".equals(opt.value))
+            .findFirst().map(opt -> opt.selected).orElse(false));
+    }
+
+    @Test
+    public void doFillExploitLikelihoodThresholdItems_SelectsMatchingValue() {
+        ListBoxModel items = getDescriptor().doFillExploitLikelihoodThresholdItems("HIGH");
+        assertTrue(items.stream()
+            .filter(opt -> "HIGH".equals(opt.value))
+            .findFirst().map(opt -> opt.selected).orElse(false));
+        assertFalse(items.stream()
+            .filter(opt -> "LOW".equals(opt.value))
+            .findFirst().map(opt -> opt.selected).orElse(true));
+    }
+
+    // --- doCheckExploitLikelihoodThreshold ---
+
+    @Test
+    public void doCheckExploitLikelihoodThreshold_NonLikelihoodType_ReturnsOk() {
+        FormValidation result = getDescriptor().doCheckExploitLikelihoodThreshold("", "RISK");
+        assertEquals(FormValidation.Kind.OK, result.kind);
+    }
+
+    @Test
+    public void doCheckExploitLikelihoodThreshold_LikelihoodType_EmptyValue_ReturnsError() {
+        FormValidation result = getDescriptor().doCheckExploitLikelihoodThreshold("", "EXPLOIT_LIKELIHOOD");
+        assertEquals(FormValidation.Kind.ERROR, result.kind);
+    }
+
+    @Test
+    public void doCheckExploitLikelihoodThreshold_LikelihoodType_NullValue_ReturnsError() {
+        FormValidation result = getDescriptor().doCheckExploitLikelihoodThreshold(null, "EXPLOIT_LIKELIHOOD");
+        assertEquals(FormValidation.Kind.ERROR, result.kind);
+    }
+
+    @Test
+    public void doCheckExploitLikelihoodThreshold_LikelihoodType_InvalidValue_ReturnsError() {
+        FormValidation result = getDescriptor().doCheckExploitLikelihoodThreshold("INVALID", "EXPLOIT_LIKELIHOOD");
+        assertEquals(FormValidation.Kind.ERROR, result.kind);
+    }
+
+    @Test
+    public void doCheckExploitLikelihoodThreshold_LikelihoodType_ValidValues_ReturnOk() {
+        AppknoxScanner.DescriptorImpl d = getDescriptor();
+        assertEquals(FormValidation.Kind.OK, d.doCheckExploitLikelihoodThreshold("LOW", "EXPLOIT_LIKELIHOOD").kind);
+        assertEquals(FormValidation.Kind.OK, d.doCheckExploitLikelihoodThreshold("MEDIUM", "EXPLOIT_LIKELIHOOD").kind);
+        assertEquals(FormValidation.Kind.OK, d.doCheckExploitLikelihoodThreshold("HIGH", "EXPLOIT_LIKELIHOOD").kind);
     }
 }
