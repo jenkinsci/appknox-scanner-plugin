@@ -52,14 +52,6 @@ Add other details in the Appknox Plugin Configuration:
 
 ![Appknox Plugin Configuration](images/jenkins7.png)
 
-#### View Output logs
-
-The above task will upload the binary which will initiate Appknox automated scanning. The progress can be viewed in the pipeline build logs.
-
-![](images/console-vulnerability-summary.png)
-
-When KnoxIQ triage is enabled (`triggerKnoxiq`, or automatically when `thresholdType` is `EXPLOIT_LIKELIHOOD`), it runs (`Started` → `In progress` → `Completed`) before the gate is evaluated, so each finding is checked against the configured gate (e.g. `exploit likelihood >= Low`) using its real-world exploit likelihood rather than raw CVSS severity. Findings KnoxIQ couldn't triage (exploit likelihood "Unknown") are flagged as "needs review" without affecting the build decision — full details are available on the Appknox dashboard.
-
 
 ## Appknox Plugin as Pipeline
 
