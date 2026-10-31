@@ -249,15 +249,48 @@ public class AppknoxScannerTest {
     // --- Lines 721-736: doCheckCredentialsId + doCheckFilePath ---
 
     @Test
-    public void doCheckCredentialsId_EmptyReturnsError() {
-        FormValidation result = getDescriptor().doCheckCredentialsId("");
+    public void doCheckCredentialsId_BothEmptyReturnsError() {
+        FormValidation result = getDescriptor().doCheckCredentialsId("", "");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckCredentialsId_NonEmptyReturnsOk() {
-        FormValidation result = getDescriptor().doCheckCredentialsId("some-cred-id");
+    public void doCheckCredentialsId_OnlyCredentialsIdReturnsOk() {
+        FormValidation result = getDescriptor().doCheckCredentialsId("some-cred-id", "");
         assertEquals(FormValidation.Kind.OK, result.kind);
+    }
+
+    @Test
+    public void doCheckCredentialsId_BothProvidedReturnsError() {
+        FormValidation result = getDescriptor().doCheckCredentialsId("some-cred-id", "some-sa-id");
+        assertEquals(FormValidation.Kind.ERROR, result.kind);
+    }
+
+    @Test
+    public void doCheckServiceAccountCredentialsId_OnlyServiceAccountReturnsOk() {
+        FormValidation result = getDescriptor().doCheckServiceAccountCredentialsId("some-sa-id", "");
+        assertEquals(FormValidation.Kind.OK, result.kind);
+    }
+
+    @Test
+    public void validateCredentialSelection_NeitherProvided_ReturnsError() {
+        assertNotNull(AppknoxScanner.validateCredentialSelection("", ""));
+        assertNotNull(AppknoxScanner.validateCredentialSelection(null, null));
+    }
+
+    @Test
+    public void validateCredentialSelection_BothProvided_ReturnsError() {
+        assertNotNull(AppknoxScanner.validateCredentialSelection("pat-id", "sa-id"));
+    }
+
+    @Test
+    public void validateCredentialSelection_OnlyPAT_ReturnsNull() {
+        assertNull(AppknoxScanner.validateCredentialSelection("pat-id", ""));
+    }
+
+    @Test
+    public void validateCredentialSelection_OnlyServiceAccount_ReturnsNull() {
+        assertNull(AppknoxScanner.validateCredentialSelection("", "sa-id"));
     }
 
     @Test

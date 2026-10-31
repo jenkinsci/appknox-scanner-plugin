@@ -10,7 +10,11 @@ Sign up on [Appknox](https://appknox.com).
 
 Generate a personal access token from <a href="https://secure.appknox.com/settings/developersettings" target="_blank">Developer Settings</a>
 
-### Step 2: Store Appknox Access Token in Credentials
+### Step 2: Store your credential in Jenkins Credentials
+
+Either an Access Token or a Service Account is required — provide exactly one.
+
+#### Option A: Personal Access Token
 
 Select credentials options from Manage Jenkins -> Credentials:
 
@@ -23,6 +27,17 @@ Store Appknox Access Token as Global Credential:
 Select Kind as "Secret Text" and store the Appknox Access Token with desired "ID" and "Description":
 
 ![Kind Credentials](images/jenkins4.png)
+
+#### Option B: Service Account
+
+A Service Account is created by an organization owner or admin from the Appknox
+dashboard, and must have CLI access enabled on it before it can be used. Ask an
+organization owner to create one for you and provide the resulting Access Key ID
+and Access Key Secret.
+
+Select credentials options from Manage Jenkins -> Credentials, and add a new
+credential with Kind "Username with password": set the **Username** to the
+Service Account's Access Key ID, and the **Password** to the Access Key Secret.
 
 ## Appknox Plugin as Jenkins Job
 
@@ -40,13 +55,13 @@ Add Appknox Plugin from build step:
 
 ### Step 3: Configure Appknox Plugin
 
-Select Access Token from the dropdown:
+Select either the Access Token or the Service Account credential from its dropdown — leave the other one empty:
 
 ![Appknox Plugin Token](images/jenkins10.png)
 
 #### Note:
 
-Ensure the Access Token matches with the Access Token given while configuring Appknox Access Token in the credentials.
+Ensure the selected credential matches the one configured in Step 2. Exactly one of Access Token or Service Account must be set; providing both, or neither, fails the build.
 
 Add other details in the Appknox Plugin Configuration:
 
@@ -83,7 +98,7 @@ Add Appknox Plugin Stage:
 
 #### Note:
 
-Ensure the Appknox Access Token ID matches with the ID given while configuring Appknox Access Token in the credentials.
+Ensure the selected credential ID matches the ID given while storing it in Jenkins credentials. Exactly one of `credentialsId` (Access Token) or `serviceAccountCredentialsId` (Service Account) must be set.
 
 #### In your Pipeline Stages Add this after building your Application stage:-
 
@@ -93,7 +108,8 @@ stages {
         steps {
             script {
                 appKnoxScanner(
-                    credentialsId: 'your-appknox-access-token-ID', // Specify the Appknox Access Token ID that was set when storing the token in Jenkins credentials.
+                    credentialsId: 'your-appknox-access-token-ID', // Specify the Appknox Access Token ID -- leave empty (or omit) when using serviceAccountCredentialsId instead.
+                    // serviceAccountCredentialsId: 'your-appknox-service-account-ID', // Username-with-password credential ID (Username = Access Key ID, Password = Access Key Secret) -- use this instead of credentialsId for Service Account auth.
                     filePath: FILE_PATH,
                     thresholdType: 'RISK', // 'RISK', 'HEALTH_SCORE', or 'EXPLOIT_LIKELIHOOD' -- pick exactly one, with the matching threshold field below
                     riskThreshold: params.RISK_THRESHOLD, // required when thresholdType is 'RISK'
@@ -113,7 +129,8 @@ stages {
 
 | Key                 | Value                        |
 |---------------------|------------------------------|
-| `credentialsId`     | Personal appknox access token ID |
+| `credentialsId`     | Personal appknox access token ID. Exactly one of `credentialsId` or `serviceAccountCredentialsId` is required. |
+| `serviceAccountCredentialsId` | Service Account credential ID (a Jenkins "Username with password" credential: Username = Access Key ID, Password = Access Key Secret). Exactly one of `credentialsId` or `serviceAccountCredentialsId` is required. |
 | `filePath`          | Specify the build file name or path for the mobile application binary to upload, E.g. app-debug.apk, app/build/apk/app-debug.apk |
 | `thresholdType`     | Which threshold to enforce — pick exactly one. <br><br>Accepted values: `RISK`, `HEALTH_SCORE`, `EXPLOIT_LIKELIHOOD` |
 | `riskThreshold`     | Risk threshold value for which the CI should fail. Required when `thresholdType` is `RISK`. <br><br>Accepted values: `CRITICAL, HIGH, MEDIUM & LOW` <br><br>Default: `LOW` |

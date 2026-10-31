@@ -1,10 +1,16 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
     xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-    <div style="background-color: #f0f4ff; border: 1px solid #c5d0e8; border-radius: 6px; padding: 12px 16px; margin: 4px 0;">
+    <div class="appknox-scanner-block" style="background-color: #f0f4ff; border: 1px solid #c5d0e8; border-radius: 6px; padding: 12px 16px; margin: 4px 0;">
     <f:section title="Appknox Security Scanner Configuration">
         <f:entry title="${%credentialsId}" field="credentialsId">
-            <f:select field="credentialsId" />
+            <f:select field="credentialsId" onchange="appknoxToggleCredentials(this)" />
+        </f:entry>
+        <f:entry title="${%serviceAccountCredentialsId}" field="serviceAccountCredentialsId">
+            <f:select field="serviceAccountCredentialsId" onchange="appknoxToggleCredentials(this)" />
+        </f:entry>
+        <f:entry>
+            <div style="margin-top: -8px; color: #666; font-size: 0.9em;">${%credentialsNote}</div>
         </f:entry>
         <f:entry title="${%filePath}" field="filePath">
             <f:textbox field = "filePath"/>
@@ -39,6 +45,22 @@
             <div style="margin-top: 1px; color: #666; font-size: 0.9em;" id="appknox-trigger-knoxiq-note">${%triggerKnoxiqNote}</div>
         </f:entry>
         <script><![CDATA[
+            function appknoxSyncCredentialsDisabled(container) {
+                var tokenSelect = container.querySelector('select[name="_.credentialsId"]');
+                var saSelect = container.querySelector('select[name="_.serviceAccountCredentialsId"]');
+                if (!tokenSelect || !saSelect) return;
+                var tokenSet = tokenSelect.value !== '';
+                var saSet = saSelect.value !== '';
+                // Only enforce exclusivity once one side is picked -- if both are
+                // already set (a pre-existing invalid config), leave both enabled
+                // so the user can clear either one via its dropdown.
+                tokenSelect.disabled = saSet && !tokenSet;
+                saSelect.disabled = tokenSet && !saSet;
+            }
+            function appknoxToggleCredentials(sel) {
+                var container = sel.closest('.appknox-scanner-block');
+                if (container) appknoxSyncCredentialsDisabled(container);
+            }
             function appknoxToggleThreshold(sel) {
                 var val = sel.value;
                 var riskRow = document.getElementById('appknox-risk-row');
@@ -69,6 +91,9 @@
                 }
             }
             setTimeout(function() {
+                document.querySelectorAll('.appknox-scanner-block').forEach(function(block) {
+                    appknoxSyncCredentialsDisabled(block);
+                });
                 var selects = document.querySelectorAll('select[name="_.thresholdType"]');
                 var sel = selects.length > 0 ? selects[selects.length - 1] : null;
                 if (sel) {

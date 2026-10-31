@@ -39,6 +39,7 @@ import org.kohsuke.stapler.verb.POST;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
 
 import java.io.BufferedReader;
@@ -64,6 +65,7 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
     private boolean generatePdfReport;
     private boolean triggerKnoxiq;
     private String exploitLikelihoodThreshold;
+    private String serviceAccountCredentialsId;
 
     @DataBoundConstructor
     public AppknoxScanner(String credentialsId, String filePath, String thresholdType, String riskThreshold, String healthScoreThreshold, String region) {
@@ -77,6 +79,15 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
 
     public String getCredentialsId() {
         return credentialsId;
+    }
+
+    public String getServiceAccountCredentialsId() {
+        return serviceAccountCredentialsId;
+    }
+
+    @DataBoundSetter
+    public void setServiceAccountCredentialsId(String serviceAccountCredentialsId) {
+        this.serviceAccountCredentialsId = serviceAccountCredentialsId;
     }
 
     public String getFilePath() {
@@ -157,14 +168,11 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
             throws IOException, InterruptedException, AbortException {
 
         try {
-            String accessToken = getAccessToken(listener);
-            if (accessToken == null) {
-                return false;
-            }
-
             // Create environment variables
             EnvVars env = new EnvVars();
-            env.put("APPKNOX_ACCESS_TOKEN", accessToken);
+            if (!populateCredentialEnv(env, listener)) {
+                return false;
+            }
 
             String appknoxPath = downloadAndInstallAppknox(workspace, listener, launcher);
 
@@ -668,6 +676,66 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 
+    private StandardUsernamePasswordCredentials getServiceAccountCredentials(TaskListener listener) {
+        Jenkins jenkins = Jenkins.get();
+        StandardUsernamePasswordCredentials credentials = CredentialsMatchers.firstOrNull(
+                CredentialsProvider.lookupCredentials(StandardUsernamePasswordCredentials.class, jenkins, ACL.SYSTEM,
+                        URIRequirementBuilder.create().build()),
+                CredentialsMatchers.withId(serviceAccountCredentialsId));
+
+        if (credentials != null) {
+            return credentials;
+        } else {
+            listener.getLogger().println("Failed to retrieve service account credentials.");
+            return null;
+        }
+    }
+
+    // validateCredentialSelection mirrors appknox-go's own resolveCredentials:
+    // exactly one of an Access Token or Service Account credential must be
+    // selected. Pure and package-visible for unit testing without a Jenkins
+    // instance.
+    static String validateCredentialSelection(String credentialsId, String serviceAccountCredentialsId) {
+        boolean hasPAT = credentialsId != null && !credentialsId.isEmpty();
+        boolean hasServiceAccount = serviceAccountCredentialsId != null && !serviceAccountCredentialsId.isEmpty();
+
+        if (hasPAT && hasServiceAccount) {
+            return "Provide either an Appknox Access Token or Service Account credentials, not both.";
+        }
+        if (!hasPAT && !hasServiceAccount) {
+            return "Appknox credentials missing: select an Access Token or Service Account credential.";
+        }
+        return null;
+    }
+
+    // populateCredentialEnv resolves whichever credential was selected and
+    // sets the matching env vars the appknox CLI reads directly -- either
+    // APPKNOX_ACCESS_TOKEN, or the APPKNOX_ACCESS_KEY_ID/SECRET pair.
+    private boolean populateCredentialEnv(EnvVars env, TaskListener listener) {
+        String validationError = validateCredentialSelection(credentialsId, serviceAccountCredentialsId);
+        if (validationError != null) {
+            listener.getLogger().println(validationError);
+            return false;
+        }
+
+        if (serviceAccountCredentialsId != null && !serviceAccountCredentialsId.isEmpty()) {
+            StandardUsernamePasswordCredentials serviceAccount = getServiceAccountCredentials(listener);
+            if (serviceAccount == null) {
+                return false;
+            }
+            env.put("APPKNOX_ACCESS_KEY_ID", serviceAccount.getUsername());
+            env.put("APPKNOX_ACCESS_KEY_SECRET", serviceAccount.getPassword().getPlainText());
+            return true;
+        }
+
+        String accessToken = getAccessToken(listener);
+        if (accessToken == null) {
+            return false;
+        }
+        env.put("APPKNOX_ACCESS_TOKEN", accessToken);
+        return true;
+    }
+
     private String extractFileID(String uploadOutput, TaskListener listener) {
         String[] lines = uploadOutput.split("\\r?\\n");
         for (int i = lines.length - 1; i >= 0; i--) {
@@ -782,13 +850,46 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
                             CredentialsMatchers.instanceOf(StringCredentials.class));
         }
 
+        @SuppressWarnings("deprecation")
         @POST
-        public FormValidation doCheckCredentialsId(@QueryParameter String value) {
-            Jenkins.get().checkPermission(Item.CONFIGURE);
-            if (value.isEmpty()) {
-                return FormValidation.error("Appknox Access Token must be selected");
+        public ListBoxModel doFillServiceAccountCredentialsIdItems(@AncestorInPath ItemGroup<?> context) {
+            if(context == null){
+                Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+            }else{
+                ((AccessControlled) context).checkPermission(Item.CONFIGURE);
             }
-            return FormValidation.ok();
+
+            StandardListBoxModel result = new StandardListBoxModel();
+            result.includeEmptyValue();
+            // Labelled by credential ID rather than the default "username/******"
+            // display -- the username here is the Appknox Access Key ID itself,
+            // so the default label would leak part of it into the dropdown.
+            List<StandardUsernamePasswordCredentials> credentials = CredentialsProvider.lookupCredentials(
+                    StandardUsernamePasswordCredentials.class,
+                    context,
+                    ACL.SYSTEM,
+                    URIRequirementBuilder.fromUri("").build());
+            for (StandardUsernamePasswordCredentials credential : credentials) {
+                String label = credential.getDescription() == null || credential.getDescription().isEmpty()
+                        ? credential.getId()
+                        : credential.getId() + " (" + credential.getDescription() + ")";
+                result.add(label, credential.getId());
+            }
+            return result;
+        }
+
+        @POST
+        public FormValidation doCheckCredentialsId(@QueryParameter String value, @QueryParameter String serviceAccountCredentialsId) {
+            Jenkins.get().checkPermission(Item.CONFIGURE);
+            String error = validateCredentialSelection(value, serviceAccountCredentialsId);
+            return error == null ? FormValidation.ok() : FormValidation.error(error);
+        }
+
+        @POST
+        public FormValidation doCheckServiceAccountCredentialsId(@QueryParameter String value, @QueryParameter String credentialsId) {
+            Jenkins.get().checkPermission(Item.CONFIGURE);
+            String error = validateCredentialSelection(credentialsId, value);
+            return error == null ? FormValidation.ok() : FormValidation.error(error);
         }
 
         @POST
