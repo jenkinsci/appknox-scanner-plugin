@@ -61,6 +61,24 @@
                 var container = sel.closest('.appknox-scanner-block');
                 if (container) appknoxSyncCredentialsDisabled(container);
             }
+            function appknoxAddHelpHint(select) {
+                if (!select) return;
+                var row = select.closest('.jenkins-form-item');
+                var helpLink = row && row.querySelector('a.jenkins-help-button');
+                if (!helpLink || helpLink.dataset.appknoxHintAdded) return;
+                helpLink.dataset.appknoxHintAdded = 'true';
+                var hintedTitle = helpLink.title + ' (more info)';
+                helpLink.title = hintedTitle;
+                helpLink.setAttribute('tooltip', hintedTitle);
+                // Jenkins renders this tooltip via Tippy.js, which caches its own
+                // content at init time -- mutating the title/tooltip attribute
+                // alone doesn't refresh an already-initialized instance, so push
+                // the update into Tippy directly on every hover as a just-in-time
+                // refresh regardless of when Tippy attached to this element.
+                helpLink.addEventListener('mouseenter', function() {
+                    if (helpLink._tippy) helpLink._tippy.setContent(hintedTitle);
+                });
+            }
             function appknoxToggleThreshold(sel) {
                 var val = sel.value;
                 var riskRow = document.getElementById('appknox-risk-row');
@@ -93,6 +111,8 @@
             setTimeout(function() {
                 document.querySelectorAll('.appknox-scanner-block').forEach(function(block) {
                     appknoxSyncCredentialsDisabled(block);
+                    appknoxAddHelpHint(block.querySelector('select[name="_.credentialsId"]'));
+                    appknoxAddHelpHint(block.querySelector('select[name="_.serviceAccountCredentialsId"]'));
                 });
                 var selects = document.querySelectorAll('select[name="_.thresholdType"]');
                 var sel = selects.length > 0 ? selects[selects.length - 1] : null;
