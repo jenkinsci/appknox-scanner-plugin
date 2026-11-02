@@ -676,7 +676,10 @@ public class AppknoxScanner extends Builder implements SimpleBuildStep {
         }
     }
 
-    private StandardUsernamePasswordCredentials getServiceAccountCredentials(TaskListener listener) {
+    // Package-visible (rather than private) so it can be exercised directly
+    // from tests against a real registered credential, without needing to
+    // drive the full perform() flow.
+    StandardUsernamePasswordCredentials getServiceAccountCredentials(TaskListener listener) {
         Jenkins jenkins = Jenkins.get();
         StandardUsernamePasswordCredentials credentials = CredentialsMatchers.firstOrNull(
                 CredentialsProvider.lookupCredentials(StandardUsernamePasswordCredentials.class, jenkins, ACL.SYSTEM,
