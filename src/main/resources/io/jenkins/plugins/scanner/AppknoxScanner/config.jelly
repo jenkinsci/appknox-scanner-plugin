@@ -61,13 +61,16 @@
                 var container = sel.closest('.appknox-scanner-block');
                 if (container) appknoxSyncCredentialsDisabled(container);
             }
-            function appknoxAddHelpHint(select) {
+            function appknoxAddHelpHint(select, label) {
                 if (!select) return;
                 var row = select.closest('.jenkins-form-item');
                 var helpLink = row && row.querySelector('a.jenkins-help-button');
                 if (!helpLink || helpLink.dataset.appknoxHintAdded) return;
                 helpLink.dataset.appknoxHintAdded = 'true';
-                var hintedTitle = helpLink.title + ' (more info)';
+                // Replace core's generic "Help for feature: <title>" wording with
+                // something that actually says what the field is, so hovering
+                // tells you more than the field's own label already does.
+                var hintedTitle = label + ' -- click for more details';
                 helpLink.title = hintedTitle;
                 helpLink.setAttribute('tooltip', hintedTitle);
                 // Jenkins renders this tooltip via Tippy.js, which caches its own
@@ -111,8 +114,8 @@
             setTimeout(function() {
                 document.querySelectorAll('.appknox-scanner-block').forEach(function(block) {
                     appknoxSyncCredentialsDisabled(block);
-                    appknoxAddHelpHint(block.querySelector('select[name="_.credentialsId"]'));
-                    appknoxAddHelpHint(block.querySelector('select[name="_.serviceAccountCredentialsId"]'));
+                    appknoxAddHelpHint(block.querySelector('select[name="_.credentialsId"]'), 'Appknox Personal Access Token');
+                    appknoxAddHelpHint(block.querySelector('select[name="_.serviceAccountCredentialsId"]'), 'Appknox Service Account');
                 });
                 var selects = document.querySelectorAll('select[name="_.thresholdType"]');
                 var sel = selects.length > 0 ? selects[selects.length - 1] : null;
