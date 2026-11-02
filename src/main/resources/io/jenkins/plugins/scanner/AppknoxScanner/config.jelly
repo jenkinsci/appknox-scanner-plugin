@@ -116,6 +116,12 @@
                     appknoxSyncCredentialsDisabled(block);
                     appknoxAddHelpHint(block.querySelector('select[name="_.credentialsId"]'), 'Appknox Personal Access Token');
                     appknoxAddHelpHint(block.querySelector('select[name="_.serviceAccountCredentialsId"]'), 'Appknox Service Account');
+                    appknoxAddHelpHint(block.querySelector('[name="_.filePath"]'), 'Path to the APK/IPA file to scan');
+                    appknoxAddHelpHint(block.querySelector('[name="_.thresholdType"]'), 'Which gate decides if the build fails');
+                    appknoxAddHelpHint(block.querySelector('[name="_.riskThreshold"]'), 'Risk level that fails the build');
+                    appknoxAddHelpHint(block.querySelector('[name="_.healthScoreThreshold"]'), 'Minimum health score required to pass');
+                    appknoxAddHelpHint(block.querySelector('[name="_.exploitLikelihoodThreshold"]'), 'Minimum exploit likelihood that fails the build');
+                    appknoxAddHelpHint(block.querySelector('[name="_.region"]'), 'Appknox region to scan against');
                 });
                 var selects = document.querySelectorAll('select[name="_.thresholdType"]');
                 var sel = selects.length > 0 ? selects[selects.length - 1] : null;
