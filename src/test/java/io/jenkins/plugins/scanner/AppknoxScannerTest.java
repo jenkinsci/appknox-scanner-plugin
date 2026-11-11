@@ -1,5 +1,10 @@
 package io.jenkins.plugins.scanner;
 
+import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+import com.cloudbees.plugins.credentials.common.StandardUsernamePasswordCredentials;
+import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
+import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import org.junit.Rule;
@@ -249,15 +254,94 @@ public class AppknoxScannerTest {
     // --- Lines 721-736: doCheckCredentialsId + doCheckFilePath ---
 
     @Test
-    public void doCheckCredentialsId_EmptyReturnsError() {
-        FormValidation result = getDescriptor().doCheckCredentialsId("");
+    public void doCheckCredentialsId_BothEmptyReturnsError() {
+        FormValidation result = getDescriptor().doCheckCredentialsId("", "");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckCredentialsId_NonEmptyReturnsOk() {
-        FormValidation result = getDescriptor().doCheckCredentialsId("some-cred-id");
+    public void doCheckCredentialsId_OnlyCredentialsIdReturnsOk() {
+        FormValidation result = getDescriptor().doCheckCredentialsId("some-cred-id", "");
         assertEquals(FormValidation.Kind.OK, result.kind);
+    }
+
+    @Test
+    public void doCheckCredentialsId_BothProvidedReturnsError() {
+        FormValidation result = getDescriptor().doCheckCredentialsId("some-cred-id", "some-sa-id");
+        assertEquals(FormValidation.Kind.ERROR, result.kind);
+    }
+
+    @Test
+    public void doCheckServiceAccountCredentialsId_OnlyServiceAccountReturnsOk() {
+        FormValidation result = getDescriptor().doCheckServiceAccountCredentialsId("some-sa-id", "");
+        assertEquals(FormValidation.Kind.OK, result.kind);
+    }
+
+    @Test
+    public void validateCredentialSelection_NeitherProvided_ReturnsError() {
+        assertNotNull(AppknoxScanner.validateCredentialSelection("", ""));
+        assertNotNull(AppknoxScanner.validateCredentialSelection(null, null));
+    }
+
+    @Test
+    public void validateCredentialSelection_BothProvided_ReturnsError() {
+        assertNotNull(AppknoxScanner.validateCredentialSelection("pat-id", "sa-id"));
+    }
+
+    @Test
+    public void validateCredentialSelection_OnlyPAT_ReturnsNull() {
+        assertNull(AppknoxScanner.validateCredentialSelection("pat-id", ""));
+    }
+
+    @Test
+    public void validateCredentialSelection_OnlyServiceAccount_ReturnsNull() {
+        assertNull(AppknoxScanner.validateCredentialSelection("", "sa-id"));
+    }
+
+    private void registerServiceAccountCredential(String id, String description) throws Exception {
+        SystemCredentialsProvider.getInstance().getCredentials().add(
+                new UsernamePasswordCredentialsImpl(CredentialsScope.GLOBAL, id, description, "key-id-value", "key-secret-value"));
+        SystemCredentialsProvider.getInstance().save();
+    }
+
+    @Test
+    public void doFillServiceAccountCredentialsIdItems_LabelsByIdWhenNoDescription() throws Exception {
+        registerServiceAccountCredential("sa-no-desc", "");
+
+        ListBoxModel items = getDescriptor().doFillServiceAccountCredentialsIdItems(null);
+
+        assertTrue(items.stream().anyMatch(opt -> "sa-no-desc".equals(opt.value) && "sa-no-desc".equals(opt.name)));
+    }
+
+    @Test
+    public void doFillServiceAccountCredentialsIdItems_LabelsByIdAndDescriptionWhenPresent() throws Exception {
+        registerServiceAccountCredential("sa-with-desc", "Prod Service Account");
+
+        ListBoxModel items = getDescriptor().doFillServiceAccountCredentialsIdItems(null);
+
+        assertTrue(items.stream().anyMatch(opt ->
+                "sa-with-desc".equals(opt.value) && "sa-with-desc (Prod Service Account)".equals(opt.name)));
+    }
+
+    @Test
+    public void getServiceAccountCredentials_ReturnsRegisteredCredential() throws Exception {
+        registerServiceAccountCredential("sa-lookup-id", "desc");
+        AppknoxScanner scanner = new AppknoxScanner("", "app.apk", "RISK", "LOW", "", "global");
+        scanner.setServiceAccountCredentialsId("sa-lookup-id");
+
+        StandardUsernamePasswordCredentials result = scanner.getServiceAccountCredentials(TaskListener.NULL);
+
+        assertNotNull(result);
+        assertEquals("key-id-value", result.getUsername());
+        assertEquals("key-secret-value", result.getPassword().getPlainText());
+    }
+
+    @Test
+    public void getServiceAccountCredentials_UnknownIdReturnsNull() {
+        AppknoxScanner scanner = new AppknoxScanner("", "app.apk", "RISK", "LOW", "", "global");
+        scanner.setServiceAccountCredentialsId("no-such-credential-id");
+
+        assertNull(scanner.getServiceAccountCredentials(TaskListener.NULL));
     }
 
     @Test
