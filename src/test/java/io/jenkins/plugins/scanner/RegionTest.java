@@ -1,13 +1,13 @@
 package io.jenkins.plugins.scanner;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class RegionTest {
+class RegionTest {
 
     @Test
-    public void allRegionsHaveCorrectValues() {
+    void allRegionsHaveCorrectValues() {
         assertEquals("global", Region.GLOBAL.getValue());
         assertEquals("uae", Region.UAE.getValue());
         assertEquals("saudi", Region.SAUDI.getValue());
@@ -15,7 +15,7 @@ public class RegionTest {
     }
 
     @Test
-    public void allRegionsHaveCorrectDisplayNames() {
+    void allRegionsHaveCorrectDisplayNames() {
         assertEquals("Global", Region.GLOBAL.getDisplayName());
         assertEquals("UAE", Region.UAE.getDisplayName());
         assertEquals("Saudi", Region.SAUDI.getDisplayName());
@@ -23,7 +23,7 @@ public class RegionTest {
     }
 
     @Test
-    public void allRegionsHaveCorrectBaseUrls() {
+    void allRegionsHaveCorrectBaseUrls() {
         assertEquals("https://secure.appknox.com/", Region.GLOBAL.getBaseUrl());
         assertEquals("https://secure.uae.appknox.com/", Region.UAE.getBaseUrl());
         assertEquals("https://sa.secure.appknox.com/", Region.SAUDI.getBaseUrl());
@@ -31,22 +31,22 @@ public class RegionTest {
     }
 
     @Test
-    public void getDefault_ReturnsGlobal() {
+    void getDefault_ReturnsGlobal() {
         assertEquals(Region.GLOBAL, Region.getDefault());
     }
 
     @Test
-    public void fromValue_NullReturnsDefault() {
+    void fromValue_NullReturnsDefault() {
         assertEquals(Region.GLOBAL, Region.fromValue(null));
     }
 
     @Test
-    public void fromValue_EmptyReturnsDefault() {
+    void fromValue_EmptyReturnsDefault() {
         assertEquals(Region.GLOBAL, Region.fromValue(""));
     }
 
     @Test
-    public void fromValue_KnownValuesReturnCorrectRegion() {
+    void fromValue_KnownValuesReturnCorrectRegion() {
         assertEquals(Region.GLOBAL, Region.fromValue("global"));
         assertEquals(Region.UAE, Region.fromValue("uae"));
         assertEquals(Region.SAUDI, Region.fromValue("saudi"));
@@ -54,7 +54,7 @@ public class RegionTest {
     }
 
     @Test
-    public void fromValue_CaseInsensitive() {
+    void fromValue_CaseInsensitive() {
         assertEquals(Region.GLOBAL, Region.fromValue("GLOBAL"));
         assertEquals(Region.UAE, Region.fromValue("UAE"));
         assertEquals(Region.SAUDI, Region.fromValue("SAUDI"));
@@ -62,13 +62,13 @@ public class RegionTest {
     }
 
     @Test
-    public void fromValue_UnknownValueReturnsDefault() {
+    void fromValue_UnknownValueReturnsDefault() {
         assertEquals(Region.GLOBAL, Region.fromValue("unknown"));
         assertEquals(Region.GLOBAL, Region.fromValue("us-east"));
     }
 
     @Test
-    public void fourRegionsExist() {
+    void fourRegionsExist() {
         assertEquals(4, Region.values().length);
     }
 }
