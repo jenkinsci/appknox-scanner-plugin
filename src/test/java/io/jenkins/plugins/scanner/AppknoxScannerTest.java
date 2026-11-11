@@ -7,23 +7,29 @@ import com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl;
 import hudson.model.TaskListener;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class AppknoxScannerTest {
+@WithJenkins
+class AppknoxScannerTest {
 
-    @Rule
-    public JenkinsRule jenkins = new JenkinsRule();
+    private JenkinsRule jenkins;
+
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        jenkins = rule;
+    }
 
     private AppknoxScanner.DescriptorImpl getDescriptor() {
         return (AppknoxScanner.DescriptorImpl) jenkins.jenkins.getDescriptorOrDie(AppknoxScanner.class);
     }
 
     @Test
-    public void doFillRiskThresholdItems_ReturnsAllFourOptions() {
+    void doFillRiskThresholdItems_ReturnsAllFourOptions() {
         AppknoxScanner.DescriptorImpl descriptor = getDescriptor();
         ListBoxModel items = descriptor.doFillRiskThresholdItems(null);
 
@@ -31,7 +37,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillRiskThresholdItems_ContainsExpectedValues() {
+    void doFillRiskThresholdItems_ContainsExpectedValues() {
         AppknoxScanner.DescriptorImpl descriptor = getDescriptor();
         ListBoxModel items = descriptor.doFillRiskThresholdItems(null);
 
@@ -42,7 +48,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillRiskThresholdItems_SelectsMatchingValue() {
+    void doFillRiskThresholdItems_SelectsMatchingValue() {
         AppknoxScanner.DescriptorImpl descriptor = getDescriptor();
         ListBoxModel items = descriptor.doFillRiskThresholdItems("CRITICAL");
 
@@ -56,7 +62,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillRiskThresholdItems_OtherOptionsNotSelected() {
+    void doFillRiskThresholdItems_OtherOptionsNotSelected() {
         AppknoxScanner.DescriptorImpl descriptor = getDescriptor();
         ListBoxModel items = descriptor.doFillRiskThresholdItems("HIGH");
 
@@ -76,7 +82,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillRiskThresholdItems_NullParameterNoSelection() {
+    void doFillRiskThresholdItems_NullParameterNoSelection() {
         AppknoxScanner.DescriptorImpl descriptor = getDescriptor();
         ListBoxModel items = descriptor.doFillRiskThresholdItems(null);
 
@@ -89,7 +95,7 @@ public class AppknoxScannerTest {
     // --- Lines 693-694: missing branches ---
 
     @Test
-    public void doFillRiskThresholdItems_EmptyParameter_SelectsLow() {
+    void doFillRiskThresholdItems_EmptyParameter_SelectsLow() {
         AppknoxScanner.DescriptorImpl descriptor = getDescriptor();
         ListBoxModel items = descriptor.doFillRiskThresholdItems("");
 
@@ -102,7 +108,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillRiskThresholdItems_LowParameter_SelectsLow() {
+    void doFillRiskThresholdItems_LowParameter_SelectsLow() {
         AppknoxScanner.DescriptorImpl descriptor = getDescriptor();
         ListBoxModel items = descriptor.doFillRiskThresholdItems("LOW");
 
@@ -122,7 +128,7 @@ public class AppknoxScannerTest {
     // --- Lines 67-107: constructor and getters ---
 
     @Test
-    public void constructor_StoresAllFields() {
+    void constructor_StoresAllFields() {
         AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "RISK", "LOW", "", "global");
         assertEquals("cred-id", scanner.getCredentialsId());
         assertEquals("app.apk", scanner.getFilePath());
@@ -133,39 +139,39 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void generatePdfReport_DefaultFalse() {
+    void generatePdfReport_DefaultFalse() {
         AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "RISK", "LOW", "", "global");
         assertFalse(scanner.isGeneratePdfReport());
     }
 
     @Test
-    public void setGeneratePdfReport_UpdatesValue() {
+    void setGeneratePdfReport_UpdatesValue() {
         AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "RISK", "LOW", "", "global");
         scanner.setGeneratePdfReport(true);
         assertTrue(scanner.isGeneratePdfReport());
     }
 
     @Test
-    public void triggerKnoxiq_DefaultFalse() {
+    void triggerKnoxiq_DefaultFalse() {
         AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "RISK", "LOW", "", "global");
         assertFalse(scanner.isTriggerKnoxiq());
     }
 
     @Test
-    public void setTriggerKnoxiq_UpdatesValue() {
+    void setTriggerKnoxiq_UpdatesValue() {
         AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "RISK", "LOW", "", "global");
         scanner.setTriggerKnoxiq(true);
         assertTrue(scanner.isTriggerKnoxiq());
     }
 
     @Test
-    public void exploitLikelihoodThreshold_DefaultNull() {
+    void exploitLikelihoodThreshold_DefaultNull() {
         AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "RISK", "LOW", "", "global");
         assertNull(scanner.getExploitLikelihoodThreshold());
     }
 
     @Test
-    public void setExploitLikelihoodThreshold_UpdatesValue() {
+    void setExploitLikelihoodThreshold_UpdatesValue() {
         AppknoxScanner scanner = new AppknoxScanner("cred-id", "app.apk", "EXPLOIT_LIKELIHOOD", "LOW", "", "global");
         scanner.setExploitLikelihoodThreshold("HIGH");
         assertEquals("HIGH", scanner.getExploitLikelihoodThreshold());
@@ -174,23 +180,23 @@ public class AppknoxScannerTest {
     // --- Lines 657-688: DescriptorImpl methods ---
 
     @Test
-    public void descriptor_IsApplicable_ReturnsTrue() {
+    void descriptor_IsApplicable_ReturnsTrue() {
         assertTrue(getDescriptor().isApplicable(null));
     }
 
     @Test
-    public void descriptor_GetDisplayName_ReturnsExpected() {
+    void descriptor_GetDisplayName_ReturnsExpected() {
         assertEquals("Appknox Security Scanner", getDescriptor().getDisplayName());
     }
 
     @Test
-    public void doFillRegionItems_ReturnsFourRegions() {
+    void doFillRegionItems_ReturnsFourRegions() {
         ListBoxModel items = getDescriptor().doFillRegionItems();
         assertEquals(4, items.size());
     }
 
     @Test
-    public void doFillRegionItems_ContainsAllRegionValues() {
+    void doFillRegionItems_ContainsAllRegionValues() {
         ListBoxModel items = getDescriptor().doFillRegionItems();
         assertTrue(items.stream().anyMatch(opt -> "global".equals(opt.value)));
         assertTrue(items.stream().anyMatch(opt -> "uae".equals(opt.value)));
@@ -199,13 +205,13 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillThresholdTypeItems_ReturnsThreeOptions() {
+    void doFillThresholdTypeItems_ReturnsThreeOptions() {
         ListBoxModel items = getDescriptor().doFillThresholdTypeItems(null);
         assertEquals(3, items.size());
     }
 
     @Test
-    public void doFillThresholdTypeItems_ExploitLikelihoodSelected() {
+    void doFillThresholdTypeItems_ExploitLikelihoodSelected() {
         ListBoxModel items = getDescriptor().doFillThresholdTypeItems("EXPLOIT_LIKELIHOOD");
         assertTrue(items.stream()
             .filter(opt -> "EXPLOIT_LIKELIHOOD".equals(opt.value))
@@ -216,7 +222,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillThresholdTypeItems_NullDefaultsToRisk() {
+    void doFillThresholdTypeItems_NullDefaultsToRisk() {
         ListBoxModel items = getDescriptor().doFillThresholdTypeItems(null);
         assertTrue(items.stream()
             .filter(opt -> "RISK".equals(opt.value))
@@ -227,7 +233,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillThresholdTypeItems_EmptyDefaultsToRisk() {
+    void doFillThresholdTypeItems_EmptyDefaultsToRisk() {
         ListBoxModel items = getDescriptor().doFillThresholdTypeItems("");
         assertTrue(items.stream()
             .filter(opt -> "RISK".equals(opt.value))
@@ -235,7 +241,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillThresholdTypeItems_HealthScoreSelected() {
+    void doFillThresholdTypeItems_HealthScoreSelected() {
         ListBoxModel items = getDescriptor().doFillThresholdTypeItems("HEALTH_SCORE");
         assertTrue(items.stream()
             .filter(opt -> "HEALTH_SCORE".equals(opt.value))
@@ -246,7 +252,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doCheckThresholdType_ReturnsOk() {
+    void doCheckThresholdType_ReturnsOk() {
         FormValidation result = getDescriptor().doCheckThresholdType("RISK");
         assertEquals(FormValidation.Kind.OK, result.kind);
     }
@@ -254,47 +260,47 @@ public class AppknoxScannerTest {
     // --- Lines 721-736: doCheckCredentialsId + doCheckFilePath ---
 
     @Test
-    public void doCheckCredentialsId_BothEmptyReturnsError() {
+    void doCheckCredentialsId_BothEmptyReturnsError() {
         FormValidation result = getDescriptor().doCheckCredentialsId("", "");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckCredentialsId_OnlyCredentialsIdReturnsOk() {
+    void doCheckCredentialsId_OnlyCredentialsIdReturnsOk() {
         FormValidation result = getDescriptor().doCheckCredentialsId("some-cred-id", "");
         assertEquals(FormValidation.Kind.OK, result.kind);
     }
 
     @Test
-    public void doCheckCredentialsId_BothProvidedReturnsError() {
+    void doCheckCredentialsId_BothProvidedReturnsError() {
         FormValidation result = getDescriptor().doCheckCredentialsId("some-cred-id", "some-sa-id");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckServiceAccountCredentialsId_OnlyServiceAccountReturnsOk() {
+    void doCheckServiceAccountCredentialsId_OnlyServiceAccountReturnsOk() {
         FormValidation result = getDescriptor().doCheckServiceAccountCredentialsId("some-sa-id", "");
         assertEquals(FormValidation.Kind.OK, result.kind);
     }
 
     @Test
-    public void validateCredentialSelection_NeitherProvided_ReturnsError() {
+    void validateCredentialSelection_NeitherProvided_ReturnsError() {
         assertNotNull(AppknoxScanner.validateCredentialSelection("", ""));
         assertNotNull(AppknoxScanner.validateCredentialSelection(null, null));
     }
 
     @Test
-    public void validateCredentialSelection_BothProvided_ReturnsError() {
+    void validateCredentialSelection_BothProvided_ReturnsError() {
         assertNotNull(AppknoxScanner.validateCredentialSelection("pat-id", "sa-id"));
     }
 
     @Test
-    public void validateCredentialSelection_OnlyPAT_ReturnsNull() {
+    void validateCredentialSelection_OnlyPAT_ReturnsNull() {
         assertNull(AppknoxScanner.validateCredentialSelection("pat-id", ""));
     }
 
     @Test
-    public void validateCredentialSelection_OnlyServiceAccount_ReturnsNull() {
+    void validateCredentialSelection_OnlyServiceAccount_ReturnsNull() {
         assertNull(AppknoxScanner.validateCredentialSelection("", "sa-id"));
     }
 
@@ -305,7 +311,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillServiceAccountCredentialsIdItems_LabelsByIdWhenNoDescription() throws Exception {
+    void doFillServiceAccountCredentialsIdItems_LabelsByIdWhenNoDescription() throws Exception {
         registerServiceAccountCredential("sa-no-desc", "");
 
         ListBoxModel items = getDescriptor().doFillServiceAccountCredentialsIdItems(null);
@@ -314,7 +320,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillServiceAccountCredentialsIdItems_LabelsByIdAndDescriptionWhenPresent() throws Exception {
+    void doFillServiceAccountCredentialsIdItems_LabelsByIdAndDescriptionWhenPresent() throws Exception {
         registerServiceAccountCredential("sa-with-desc", "Prod Service Account");
 
         ListBoxModel items = getDescriptor().doFillServiceAccountCredentialsIdItems(null);
@@ -324,7 +330,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void getServiceAccountCredentials_ReturnsRegisteredCredential() throws Exception {
+    void getServiceAccountCredentials_ReturnsRegisteredCredential() throws Exception {
         registerServiceAccountCredential("sa-lookup-id", "desc");
         AppknoxScanner scanner = new AppknoxScanner("", "app.apk", "RISK", "LOW", "", "global");
         scanner.setServiceAccountCredentialsId("sa-lookup-id");
@@ -337,7 +343,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void getServiceAccountCredentials_UnknownIdReturnsNull() {
+    void getServiceAccountCredentials_UnknownIdReturnsNull() {
         AppknoxScanner scanner = new AppknoxScanner("", "app.apk", "RISK", "LOW", "", "global");
         scanner.setServiceAccountCredentialsId("no-such-credential-id");
 
@@ -345,13 +351,13 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doCheckFilePath_EmptyReturnsError() {
+    void doCheckFilePath_EmptyReturnsError() {
         FormValidation result = getDescriptor().doCheckFilePath("");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckFilePath_NonEmptyReturnsOk() {
+    void doCheckFilePath_NonEmptyReturnsOk() {
         FormValidation result = getDescriptor().doCheckFilePath("app.apk");
         assertEquals(FormValidation.Kind.OK, result.kind);
     }
@@ -359,31 +365,31 @@ public class AppknoxScannerTest {
     // --- Lines 741-750: doCheckRiskThreshold ---
 
     @Test
-    public void doCheckRiskThreshold_NonRiskType_ReturnsOk() {
+    void doCheckRiskThreshold_NonRiskType_ReturnsOk() {
         FormValidation result = getDescriptor().doCheckRiskThreshold("", "HEALTH_SCORE");
         assertEquals(FormValidation.Kind.OK, result.kind);
     }
 
     @Test
-    public void doCheckRiskThreshold_RiskType_EmptyValue_ReturnsError() {
+    void doCheckRiskThreshold_RiskType_EmptyValue_ReturnsError() {
         FormValidation result = getDescriptor().doCheckRiskThreshold("", "RISK");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckRiskThreshold_RiskType_NullValue_ReturnsError() {
+    void doCheckRiskThreshold_RiskType_NullValue_ReturnsError() {
         FormValidation result = getDescriptor().doCheckRiskThreshold(null, "RISK");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckRiskThreshold_RiskType_InvalidValue_ReturnsError() {
+    void doCheckRiskThreshold_RiskType_InvalidValue_ReturnsError() {
         FormValidation result = getDescriptor().doCheckRiskThreshold("INVALID", "RISK");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckRiskThreshold_RiskType_ValidValues_ReturnOk() {
+    void doCheckRiskThreshold_RiskType_ValidValues_ReturnOk() {
         AppknoxScanner.DescriptorImpl d = getDescriptor();
         assertEquals(FormValidation.Kind.OK, d.doCheckRiskThreshold("LOW", "RISK").kind);
         assertEquals(FormValidation.Kind.OK, d.doCheckRiskThreshold("MEDIUM", "RISK").kind);
@@ -394,38 +400,38 @@ public class AppknoxScannerTest {
     // --- Lines 752-766: doCheckHealthScoreThreshold ---
 
     @Test
-    public void doCheckHealthScoreThreshold_NonHealthScoreType_ReturnsOk() {
+    void doCheckHealthScoreThreshold_NonHealthScoreType_ReturnsOk() {
         FormValidation result = getDescriptor().doCheckHealthScoreThreshold("", "RISK");
         assertEquals(FormValidation.Kind.OK, result.kind);
     }
 
     @Test
-    public void doCheckHealthScoreThreshold_HealthScoreType_EmptyValue_ReturnsError() {
+    void doCheckHealthScoreThreshold_HealthScoreType_EmptyValue_ReturnsError() {
         FormValidation result = getDescriptor().doCheckHealthScoreThreshold("", "HEALTH_SCORE");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckHealthScoreThreshold_HealthScoreType_NullValue_ReturnsError() {
+    void doCheckHealthScoreThreshold_HealthScoreType_NullValue_ReturnsError() {
         FormValidation result = getDescriptor().doCheckHealthScoreThreshold(null, "HEALTH_SCORE");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckHealthScoreThreshold_HealthScoreType_InvalidInteger_ReturnsError() {
+    void doCheckHealthScoreThreshold_HealthScoreType_InvalidInteger_ReturnsError() {
         FormValidation result = getDescriptor().doCheckHealthScoreThreshold("not-a-number", "HEALTH_SCORE");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckHealthScoreThreshold_HealthScoreType_OutOfRange_ReturnsError() {
+    void doCheckHealthScoreThreshold_HealthScoreType_OutOfRange_ReturnsError() {
         AppknoxScanner.DescriptorImpl d = getDescriptor();
         assertEquals(FormValidation.Kind.ERROR, d.doCheckHealthScoreThreshold("-1", "HEALTH_SCORE").kind);
         assertEquals(FormValidation.Kind.ERROR, d.doCheckHealthScoreThreshold("101", "HEALTH_SCORE").kind);
     }
 
     @Test
-    public void doCheckHealthScoreThreshold_HealthScoreType_ValidValues_ReturnOk() {
+    void doCheckHealthScoreThreshold_HealthScoreType_ValidValues_ReturnOk() {
         AppknoxScanner.DescriptorImpl d = getDescriptor();
         assertEquals(FormValidation.Kind.OK, d.doCheckHealthScoreThreshold("0", "HEALTH_SCORE").kind);
         assertEquals(FormValidation.Kind.OK, d.doCheckHealthScoreThreshold("50", "HEALTH_SCORE").kind);
@@ -435,13 +441,13 @@ public class AppknoxScannerTest {
     // --- doFillExploitLikelihoodThresholdItems ---
 
     @Test
-    public void doFillExploitLikelihoodThresholdItems_ReturnsThreeOptions() {
+    void doFillExploitLikelihoodThresholdItems_ReturnsThreeOptions() {
         ListBoxModel items = getDescriptor().doFillExploitLikelihoodThresholdItems(null);
         assertEquals(3, items.size());
     }
 
     @Test
-    public void doFillExploitLikelihoodThresholdItems_NullParameterDefaultsToLow() {
+    void doFillExploitLikelihoodThresholdItems_NullParameterDefaultsToLow() {
         ListBoxModel items = getDescriptor().doFillExploitLikelihoodThresholdItems(null);
         assertTrue(items.stream()
             .filter(opt -> "LOW".equals(opt.value))
@@ -449,7 +455,7 @@ public class AppknoxScannerTest {
     }
 
     @Test
-    public void doFillExploitLikelihoodThresholdItems_SelectsMatchingValue() {
+    void doFillExploitLikelihoodThresholdItems_SelectsMatchingValue() {
         ListBoxModel items = getDescriptor().doFillExploitLikelihoodThresholdItems("HIGH");
         assertTrue(items.stream()
             .filter(opt -> "HIGH".equals(opt.value))
@@ -462,31 +468,31 @@ public class AppknoxScannerTest {
     // --- doCheckExploitLikelihoodThreshold ---
 
     @Test
-    public void doCheckExploitLikelihoodThreshold_NonLikelihoodType_ReturnsOk() {
+    void doCheckExploitLikelihoodThreshold_NonLikelihoodType_ReturnsOk() {
         FormValidation result = getDescriptor().doCheckExploitLikelihoodThreshold("", "RISK");
         assertEquals(FormValidation.Kind.OK, result.kind);
     }
 
     @Test
-    public void doCheckExploitLikelihoodThreshold_LikelihoodType_EmptyValue_ReturnsError() {
+    void doCheckExploitLikelihoodThreshold_LikelihoodType_EmptyValue_ReturnsError() {
         FormValidation result = getDescriptor().doCheckExploitLikelihoodThreshold("", "EXPLOIT_LIKELIHOOD");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckExploitLikelihoodThreshold_LikelihoodType_NullValue_ReturnsError() {
+    void doCheckExploitLikelihoodThreshold_LikelihoodType_NullValue_ReturnsError() {
         FormValidation result = getDescriptor().doCheckExploitLikelihoodThreshold(null, "EXPLOIT_LIKELIHOOD");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckExploitLikelihoodThreshold_LikelihoodType_InvalidValue_ReturnsError() {
+    void doCheckExploitLikelihoodThreshold_LikelihoodType_InvalidValue_ReturnsError() {
         FormValidation result = getDescriptor().doCheckExploitLikelihoodThreshold("INVALID", "EXPLOIT_LIKELIHOOD");
         assertEquals(FormValidation.Kind.ERROR, result.kind);
     }
 
     @Test
-    public void doCheckExploitLikelihoodThreshold_LikelihoodType_ValidValues_ReturnOk() {
+    void doCheckExploitLikelihoodThreshold_LikelihoodType_ValidValues_ReturnOk() {
         AppknoxScanner.DescriptorImpl d = getDescriptor();
         assertEquals(FormValidation.Kind.OK, d.doCheckExploitLikelihoodThreshold("LOW", "EXPLOIT_LIKELIHOOD").kind);
         assertEquals(FormValidation.Kind.OK, d.doCheckExploitLikelihoodThreshold("MEDIUM", "EXPLOIT_LIKELIHOOD").kind);
